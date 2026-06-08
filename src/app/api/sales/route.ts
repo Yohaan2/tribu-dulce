@@ -1,0 +1,37 @@
+import { NextResponse } from 'next/server';
+import { SalesService } from '@/services/sales.service';
+import { CreateSaleSchema } from '@/schemas/sale.schema';
+
+export async function GET() {
+  try {
+    const sales = await SalesService.getAll();
+    return NextResponse.json({ success: true, data: sales });
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, error: error.message || 'Error al obtener ventas' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+
+    const validation = CreateSaleSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json(
+        { success: false, error: 'Datos de validación incorrectos', details: validation.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const newSale = await SalesService.create(validation.data);
+    return NextResponse.json({ success: true, data: newSale }, { status: 201 });
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, error: error.message || 'Error al registrar venta' },
+      { status: 500 }
+    );
+  }
+}

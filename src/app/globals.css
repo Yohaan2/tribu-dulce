@@ -1,26 +1,65 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #FFFFFF;
+  --background-alt: #F8F5F3;
+  --foreground: #2E2E2E;
+  
+  --primary: #7A2F2B;
+  --secondary: #C96F72;
+  --success: #4F8A5B;
+  --warning: #D97706;
+  --error: #DC2626;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-background-alt: var(--background-alt);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
+  
+  --font-sans: var(--font-inter), "SF Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: var(--font-geist-mono);
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* Map old pink colors to our custom palette to ensure seamless adoption */
+  --color-pink-50: #FAF1F0;
+  --color-pink-100: #F6E2E0;
+  --color-pink-200: #EECCC9;
+  --color-pink-500: var(--secondary);
+  --color-pink-600: var(--primary);
+  --color-pink-700: #6B2925;
+  --color-pink-800: #5C2320;
+  --color-pink-900: #4D1D1B;
+  --color-pink-950: #1B0605;
+
+  /* Map old rose colors to our custom palette */
+  --color-rose-50: #FAF1F0;
+  --color-rose-100: #F6E2E0;
+  --color-rose-400: var(--secondary);
+  --color-rose-500: var(--primary);
+  --color-rose-600: var(--primary);
+  --color-rose-700: #6B2925;
+  --color-rose-800: #5C2320;
+  --color-rose-950: #1B0605;
 }
 
 body {
-  background: var(--background);
+  background: var(--background-alt);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+}
+
+/* Global improvements for forms and buttons */
+input:focus, select:focus, textarea:focus {
+  border-color: var(--primary) !important;
+  --tw-ring-color: var(--secondary) !important;
+}
+
+button {
+  font-family: inherit;
 }
