@@ -107,7 +107,7 @@ export default function SalesPage() {
 
   return (
     <>
-    <MainLayout title="Registrar Venta">
+    <MainLayout title="Registrar Venta" >
       <div className="grid gap-6 lg:grid-cols-3">
         
         {/* Columna Izquierda: Selección de Cliente y Catálogo de Productos (Col-span 2) */}

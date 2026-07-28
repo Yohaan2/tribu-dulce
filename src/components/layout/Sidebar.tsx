@@ -19,6 +19,13 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
 import { createClient } from '@/lib/supabase/client';
+import Image from 'next/image';
+import localFont from 'next/font/local';
+
+const rtlKawthar = localFont({
+  src: '../../fonts/RTL-Kawthar-Regular.ttf',
+  display: 'swap',
+});
 
 interface SidebarProps {
   className?: string;
@@ -59,13 +66,11 @@ export function Sidebar({ className }: SidebarProps) {
 
       {/* Cabecera / Logo */}
       <div className="flex h-16 items-center px-6">
-        <Link href="/dashboard" className="flex items-center gap-2 font-bold text-primary">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-primary to-secondary text-white font-black shadow-md shadow-primary/10">
-            TD
-          </span>
+        <Link href="/dashboard" className="flex items-end gap-4 font-bold text-primary">
+          <Image src="/tribu-logo.png" alt="Tribu Dulce" width={46} height={46} className="rounded-full" />
           {!isCollapsed && (
-            <span className="text-lg font-black tracking-tight text-slate-800">
-              Tribu <span className="text-primary">Dulce</span>
+            <span className={`text-4xl tracking-tight text-primary ${rtlKawthar.className}`}>
+              Tribu <span className="ml-1">Dulce</span>
             </span>
           )}
         </Link>

@@ -101,7 +101,7 @@ export default function LoginPage() {
     setError('');
 
     const provider = (process.env.NEXT_PUBLIC_DATABASE_PROVIDER || 'postgres').toLowerCase();
-    const testEmail = role === 'ADMIN' ? 'admin.tribudulce@gmail.com' : 'employee.tribudulce@gmail.com';
+    const testEmail = role === 'ADMIN' ? 'LizmarR17@gmail.com' : 'employee.tribudulce@gmail.com';
     const testPassword = 'test123456';
 
     try {
@@ -131,7 +131,7 @@ export default function LoginPage() {
             body: JSON.stringify({
               email: testEmail,
               password: testPassword,
-              name: role === 'ADMIN' ? 'Tribu Admin (Gaby)' : 'Juan Vendedor',
+              name: role === 'ADMIN' ? 'Lizmar' : 'Lizzi Vendedor',
               role: role,
             }),
           });

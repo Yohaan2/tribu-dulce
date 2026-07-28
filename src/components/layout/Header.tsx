@@ -4,6 +4,13 @@ import { Menu, Bell, TrendingUp } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth.store';
 import { useExchangeRate } from '@/hooks/useExchangeRate';
 import { formatCurrencyBs } from '@/lib/utils';
+import { Plus_Jakarta_Sans } from 'next/font/google';
+
+const plusJakartaSans = Plus_Jakarta_Sans({
+  weight: '800',
+  subsets: ['latin'],
+  display: 'swap',
+});
 
 interface HeaderProps {
   onMenuToggle?: () => void;
@@ -24,15 +31,15 @@ export function Header({ onMenuToggle, title = 'Tribu Dulce' }: HeaderProps) {
         >
           <Menu size={20} />
         </button>
-        <h1 className="text-xl font-bold text-slate-800 md:text-2xl">{title}</h1>
+        <h1 className={`text-xl font-bold text-primary md:text-2xl ${plusJakartaSans.className}`}>{title}</h1>
       </div>
 
       {/* Lado Derecho: Tasa de cambio, Notificaciones, Perfil */}
       <div className="flex items-center gap-4">
         {/* Widget Tasa de Cambio (Sleek Ribbon) */}
         {exchangeRate && (
-          <div className="hidden items-center gap-2 rounded-full bg-amber-50 border border-amber-100 px-3 py-1 text-xs font-semibold text-amber-800 md:flex">
-            <TrendingUp size={14} className="text-amber-600" />
+          <div className="flex items-center gap-2 rounded-full bg-amber-50 border border-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
+            <TrendingUp size={16} className="text-amber-600" />
             <span>Tasa del día:</span>
             <span className="font-bold text-amber-900">{formatCurrencyBs(exchangeRate.rate)}</span>
           </div>
