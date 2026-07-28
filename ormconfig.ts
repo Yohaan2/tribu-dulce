@@ -9,7 +9,7 @@ const databaseUrl = process.env.DATABASE_URL;
 export const AppDataSource = new DataSource({
   type: 'postgres',
   url: databaseUrl,
-  entities: [path.join(process.cwd(), 'src/lib/db/**/*.{js,ts}').replace(/\\/g, '/')],
+  entities: [path.join(process.cwd(), 'src/lib/db/postgres.{js,ts}').replace(/\\/g, '/')],
   synchronize: false,
   logging: true,
   migrations: [path.join(process.cwd(), 'src/migrations/*.{js,ts}').replace(/\\/g, '/')],
