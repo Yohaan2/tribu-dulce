@@ -26,25 +26,13 @@ import {
 
 // Datos Mock en caso de que la BD esté vacía
 const MOCK_STATS = {
-  todaySales: 120.5,
-  weekSales: 945.0,
-  monthSales: 3200.75,
-  pendingAmount: 480.0,
+  todaySales: 0,
+  weekSales: 0,
+  monthSales: 0,
+  pendingAmount: 0,
   topClients: [
-    { client_id: '1', client_name: 'María Alejandra', total_spent: 420.0, sales_count: 5 },
-    { client_id: '2', client_name: 'Carlos Mendoza', total_spent: 310.5, sales_count: 3 },
-    { client_id: '3', client_name: 'Rosaura Ramos', total_spent: 220.0, sales_count: 4 },
-    { client_id: '4', client_name: 'Humberto Lugo', total_spent: 190.0, sales_count: 2 },
-    { client_id: '5', client_name: 'Patricia Ortega', total_spent: 140.0, sales_count: 2 },
   ],
   weeklyChartData: [
-    { day: 'Lun', amount: 80 },
-    { day: 'Mar', amount: 120 },
-    { day: 'Mié', amount: 95 },
-    { day: 'Jue', amount: 150 },
-    { day: 'Vie', amount: 210 },
-    { day: 'Sáb', amount: 180 },
-    { day: 'Dom', amount: 110 },
   ],
 };
 

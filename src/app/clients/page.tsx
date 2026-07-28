@@ -12,6 +12,7 @@ import {
   X,
   Clock,
 } from 'lucide-react';
+import SelectInput, { SelectOption } from '@/components/ui/select-input';
 
 interface Client {
   id: string;
@@ -26,6 +27,15 @@ export default function ClientsPage() {
   const [countryCode, setCountryCode] = useState('0412');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  const phoneCodeOptions: SelectOption[] = [
+    { value: '0412', label: '0412' },
+    { value: '0422', label: '0422' },
+    { value: '0414', label: '0414' },
+    { value: '0424', label: '0424' },
+    { value: '0426', label: '0426' },
+    { value: '0416', label: '0416' },
+  ];
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -49,9 +59,13 @@ export default function ClientsPage() {
   };
 
   const handleOpenEditModal = (client: Client) => {
+    const phoneCode = ['0412', '0414', '0424', '0416', '0426'];
+    const extractedCode = phoneCode.find(code => client.phone?.startsWith(code));
+    const phoneWithoutCountry = client.phone?.replace(`${extractedCode}`, '') || '';
     setEditingClient(client);
     setName(client.name);
-    setPhone(client.phone || '');
+    setPhone(phoneWithoutCountry);
+    setCountryCode(extractedCode || '0412');
     setErrorMsg('');
     setIsModalOpen(true);
   };
@@ -251,25 +265,15 @@ export default function ClientsPage() {
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
                     Teléfono de Contacto
                   </label>
-                  <div className="relative mt-1.5 rounded-lg shadow-sm flex gap-2">
-                    <div className="relative w-24">
-                      <select
+                  <div className="relative mt-1.5 rounded-lg flex gap-2">
+                    <div className="w-24">
+                      <SelectInput
+                        options={phoneCodeOptions}
                         value={countryCode}
-                        onChange={(e) => setCountryCode(e.target.value)}
-                        className="block w-full rounded-lg border border-slate-200 bg-white py-2 px-2 text-sm text-slate-800 outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary appearance-none cursor-pointer"
-                      >
-                        <option value="0412">0412</option>
-                        <option value="0422">0422</option>
-                        <option value="0414">0414</option>
-                        <option value="0424">0424</option>
-                        <option value="0426">0426</option>
-                        <option value="0416">0416</option>
-                      </select>
-                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 text-slate-400">
-                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
+                        onChange={setCountryCode}
+                        placeholder="Código"
+                        className="space-y-0!"
+                      />
                     </div>
                     <div className="relative flex-1">
                       <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
@@ -279,7 +283,7 @@ export default function ClientsPage() {
                         type="text"
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
-                        placeholder="Ej. 412 1234567"
+                        placeholder="Ej. 1234567"
                         className="block w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-800 outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
                       />
                     </div>

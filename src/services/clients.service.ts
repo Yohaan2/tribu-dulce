@@ -1,24 +1,10 @@
-import { createServerClient } from '@/lib/supabase/server';
+import { db } from '@/lib/db';
 import { Client } from '@/types';
 import { CreateClientInput, UpdateClientInput } from '@/schemas/client.schema';
 
 export class ClientsService {
   static async getAll(): Promise<Client[]> {
-    const supabase = await createServerClient();
-    const { data, error } = await supabase
-      .from('clients')
-      .select(`
-        *,
-        sales:sales(
-          id,
-          total_usd,
-          status,
-          payments(amount_usd)
-        )
-      `)
-      .order('name', { ascending: true });
-
-    if (error) throw new Error(error.message);
+    const data = await db.getClients();
     
     // Calcular estadísticas por cliente
     const clientsWithStats = (data || []).map((client: any) => {
@@ -45,49 +31,18 @@ export class ClientsService {
   }
 
   static async getById(id: string): Promise<Client> {
-    const supabase = await createServerClient();
-    const { data, error } = await supabase
-      .from('clients')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (error) throw new Error(`Cliente no encontrado: ${error.message}`);
-    return data;
+    return await db.getClientById(id);
   }
 
   static async create(input: CreateClientInput): Promise<Client> {
-    const supabase = await createServerClient();
-    const { data, error } = await supabase
-      .from('clients')
-      .insert(input)
-      .select()
-      .single();
-
-    if (error) throw new Error(error.message);
-    return data;
+    return await db.createClient(input);
   }
 
   static async update(id: string, input: UpdateClientInput): Promise<Client> {
-    const supabase = await createServerClient();
-    const { data, error } = await supabase
-      .from('clients')
-      .update(input)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw new Error(error.message);
-    return data;
+    return await db.updateClient(id, input);
   }
 
   static async delete(id: string): Promise<void> {
-    const supabase = await createServerClient();
-    const { error } = await supabase
-      .from('clients')
-      .delete()
-      .eq('id', id);
-
-    if (error) throw new Error(error.message);
+    await db.deleteClient(id);
   }
 }

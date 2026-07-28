@@ -9,8 +9,9 @@ import { useExchangeRate } from '@/hooks/useExchangeRate';
 import { useSalesStore } from '@/stores/sales.store';
 import { useAuthStore } from '@/stores/auth.store';
 import { formatCurrencyUsd, formatCurrencyBs } from '@/lib/utils';
-import { ShoppingCart, User, Plus, Minus, Trash, Check, Loader2 } from 'lucide-react';
+import { ShoppingCart, User, Plus, Minus, Trash, Check, Loader2, Save } from 'lucide-react';
 import { SaleStatus } from '@/types';
+import SelectInput, { SelectOption } from '@/components/ui/select-input';
 
 export default function SalesPage() {
   const { clients } = useClients();
@@ -43,6 +44,17 @@ export default function SalesPage() {
 
   const { totalUsd, totalBs } = calculateTotal();
   const [successMessage, setSuccessMessage] = useState('');
+  
+  const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
+  const [partialPayment, setPartialPayment] = useState<string>('');
+
+  const clientOptions: SelectOption[] = [
+    { value: '', label: 'Seleccionar Cliente' },
+    ...clients.map((c) => ({
+      value: c.id,
+      label: c.name + (c.phone ? ` (${c.phone})` : ''),
+    })),
+  ];
 
   const handleCheckout = async () => {
     if (!client_id) {
@@ -52,6 +64,18 @@ export default function SalesPage() {
     if (items.length === 0) {
       alert('Agrega al menos un producto a la venta.');
       return;
+    }
+
+    if (status === 'PARTIAL') {
+      const amt = parseFloat(partialPayment);
+      if (isNaN(amt) || amt <= 0) {
+        alert('Por favor, ingresa un monto de abono parcial válido y mayor a cero.');
+        return;
+      }
+      if (amt >= totalUsd) {
+        alert('El abono parcial debe ser menor al total de la venta. Si pagó todo el monto, seleccione la opción PAGADO.');
+        return;
+      }
     }
 
     try {
@@ -66,12 +90,14 @@ export default function SalesPage() {
         total_bs: totalBs,
         status,
         created_by: currentUser?.id || null,
+        partial_payment_usd: status === 'PARTIAL' ? parseFloat(partialPayment) : null,
       };
 
       await createSale(payload);
       
       // Limpiar el carrito y mostrar éxito
       clearCart();
+      setPartialPayment('');
       setSuccessMessage('¡Venta registrada con éxito!');
       setTimeout(() => setSuccessMessage(''), 4000);
     } catch (err: any) {
@@ -80,6 +106,7 @@ export default function SalesPage() {
   };
 
   return (
+    <>
     <MainLayout title="Registrar Venta">
       <div className="grid gap-6 lg:grid-cols-3">
         
@@ -87,36 +114,38 @@ export default function SalesPage() {
         <div className="lg:col-span-2 space-y-6">
           
           {/* 1. Selección de Cliente */}
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-            <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2 mb-3">
+          <div className="space-y-3">
+            <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
               <User size={16} className="text-pink-500" />
               <span>Cliente de la Venta</span>
             </h3>
             
-            <select
+            <SelectInput
+              options={clientOptions}
               value={client_id || ''}
-              onChange={(e) => setClientId(e.target.value || null)}
-              className="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-pink-500 focus:ring-1 focus:ring-pink-500"
-            >
-              <option value="">-- Seleccionar Cliente --</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} {c.phone ? `(${c.phone})` : ''}
-                </option>
-              ))}
-            </select>
+              onChange={(value) => setClientId(value || null)}
+              placeholder="Seleccionar Cliente"
+              className="space-y-0!"
+            />
           </div>
 
           {/* 2. Catálogo de Productos */}
-          <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-            <h3 className="text-sm font-bold text-slate-700 mb-4">Productos Disponibles</h3>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-700">Productos Disponibles</h3>
+              {exchangeRate && (
+                <span className="text-xs font-semibold text-slate-500">
+                  Tasa: {exchangeRate.rate} Bs/$
+                </span>
+              )}
+            </div>
             
             {productsLoading ? (
-              <div className="flex h-40 items-center justify-center text-sm text-slate-400">
+              <div className="flex h-40 items-center justify-center text-sm text-slate-400 bg-white rounded-2xl border border-slate-100 shadow-sm">
                 Cargando catálogo...
               </div>
             ) : products.length === 0 ? (
-              <p className="text-sm text-slate-400 py-6 text-center">
+              <p className="text-sm text-slate-400 py-6 text-center bg-white rounded-2xl border border-slate-100 shadow-sm">
                 No hay productos en el catálogo. Ve a la sección de Productos para agregar.
               </p>
             ) : (
@@ -124,7 +153,7 @@ export default function SalesPage() {
                 {products.map((prod) => (
                   <div
                     key={prod.id}
-                    className="flex items-center justify-between p-4 rounded-xl border border-slate-100 hover:border-pink-200 transition-colors"
+                    className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 bg-white hover:border-pink-200 transition-colors"
                   >
                     <div>
                       <p className="font-bold text-slate-800">{prod.name}</p>
@@ -147,15 +176,15 @@ export default function SalesPage() {
         </div>
 
         {/* Columna Derecha: Resumen del Carrito y Cierre (Check Out) */}
-        <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm flex flex-col justify-between h-fit">
-          <div>
-            <h3 className="text-base font-bold text-slate-800 flex items-center gap-2 mb-4">
+        <div className="flex flex-col justify-between h-fit space-y-6">
+          <div className="space-y-4">
+            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
               <ShoppingCart size={18} className="text-pink-500" />
               <span>Resumen de Venta</span>
             </h3>
 
             {successMessage && (
-              <div className="mb-4 flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-100 p-3 text-sm font-semibold text-emerald-800">
+              <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-100 p-3 text-sm font-semibold text-emerald-800">
                 <Check size={16} className="text-emerald-600" />
                 <span>{successMessage}</span>
               </div>
@@ -163,7 +192,7 @@ export default function SalesPage() {
 
             {/* Lista del carrito */}
             {items.length === 0 ? (
-              <div className="flex h-48 flex-col items-center justify-center text-slate-400 border border-dashed border-slate-100 rounded-xl my-2">
+              <div className="flex h-20 flex-col items-center justify-center text-slate-400 rounded-2xl my-2">
                 <ShoppingCart size={28} className="stroke-[1.5] mb-2" />
                 <p className="text-xs">El carrito está vacío</p>
               </div>
@@ -172,7 +201,7 @@ export default function SalesPage() {
                 {items.map((item) => (
                   <div
                     key={item.product_id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-100"
+                    className="flex items-center justify-between p-3 rounded-2xl bg-white border border-slate-100"
                   >
                     <div className="flex-1 pr-2 truncate">
                       <p className="text-xs font-bold text-slate-800 truncate">{item.name}</p>
@@ -185,7 +214,7 @@ export default function SalesPage() {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => updateQuantity(item.product_id, item.quantity - 1)}
-                        className="h-6 w-6 flex items-center justify-center rounded bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                        className="h-6 w-6 flex items-center justify-center rounded bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100"
                       >
                         <Minus size={12} />
                       </button>
@@ -194,7 +223,7 @@ export default function SalesPage() {
                       </span>
                       <button
                         onClick={() => updateQuantity(item.product_id, item.quantity + 1)}
-                        className="h-6 w-6 flex items-center justify-center rounded bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                        className="h-6 w-6 flex items-center justify-center rounded bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100"
                       >
                         <Plus size={12} />
                       </button>
@@ -212,9 +241,9 @@ export default function SalesPage() {
             )}
 
             {/* Selección de Tipo de Pago / Estatus */}
-            <div className="border-t border-slate-100 pt-4 mt-4 space-y-3">
+            <div className="py-4 space-y-3">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                <label className="block text-sm font-bold text-slate-800">
                   Condición / Estado de Cobro
                 </label>
                 <div className="grid grid-cols-3 gap-2 mt-1.5">
@@ -234,41 +263,94 @@ export default function SalesPage() {
                   ))}
                 </div>
               </div>
-            </div>
-          </div>
 
-          {/* Totales y checkout */}
-          <div className="border-t border-slate-100 pt-4 mt-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-slate-500">Total USD:</span>
-              <span className="text-xl font-black text-slate-800">
-                {formatCurrencyUsd(totalUsd)}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between rounded-xl bg-amber-50/50 px-3 py-2 text-xs border border-amber-100/50">
-              <span className="font-semibold text-amber-800">Equivalente en Bs:</span>
-              <span className="font-black text-amber-900">{formatCurrencyBs(totalBs)}</span>
-            </div>
-
-            <button
-              onClick={handleCheckout}
-              disabled={isCreating || items.length === 0 || !client_id}
-              className="w-full rounded-xl bg-pink-600 py-3 text-sm font-bold text-white shadow-md shadow-pink-500/20 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {isCreating ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" />
-                  <span>Procesando venta...</span>
-                </>
-              ) : (
-                <span>Registrar Venta</span>
+              {status === 'PARTIAL' && (
+                <div className="mt-4 space-y-3 rounded-xl bg-slate-50 p-4 border border-slate-100/80 animate-fade-in animate-duration-200">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                      Monto de Abono (USD)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={partialPayment}
+                      onChange={(e) => setPartialPayment(e.target.value)}
+                      placeholder="0.00"
+                      className="mt-1.5 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition-colors focus:border-pink-500 focus:ring-1 focus:ring-pink-500"
+                    />
+                  </div>
+                  {(() => {
+                    const abono = parseFloat(partialPayment) || 0;
+                    const remainingUsd = Math.max(0, totalUsd - abono);
+                    const remainingBs = remainingUsd * (exchangeRate ? Number(exchangeRate.rate) : 40);
+                    return (
+                      <div className="flex flex-col gap-1.5 text-xs font-semibold border-t border-slate-200/50 pt-2.5">
+                        <div className="flex justify-between text-slate-600">
+                          <span>Queda debiendo:</span>
+                          <span className="text-rose-600 font-extrabold">{formatCurrencyUsd(remainingUsd)}</span>
+                        </div>
+                        <div className="flex justify-between text-slate-600">
+                          <span>Equivalente en Bs:</span>
+                          <span className="text-rose-600 font-extrabold">{formatCurrencyBs(remainingBs)}</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
               )}
-            </button>
+            </div>
           </div>
-
         </div>
       </div>
+      
+      {/* Totales y checkout pegado abajo en móvil */}
+      <div className="
+        fixed bottom-16 left-0 right-0 z-20 bg-white border-t border-slate-100 px-5 py-4 shadow-[0_-8px_30px_rgba(0,0,0,0.05)]
+        md:relative md:bottom-auto md:left-auto md:right-auto md:z-0 md:bg-white md:border md:border-slate-100 md:rounded-2xl md:p-5 md:shadow-sm md:space-y-4
+      ">
+        <div className="flex items-end justify-between mb-4 md:mb-0">
+          <div className="space-y-0.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+              Total a cobrar
+            </span>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-2xl md:text-3xl font-black text-[#541919] tracking-tight">
+                {formatCurrencyUsd(totalUsd)}
+              </span>
+              <span className="text-xs font-bold text-slate-400">
+                / {formatCurrencyBs(totalBs)}
+              </span>
+            </div>
+          </div>
+
+          <div className="rounded-full bg-stone-100 px-2.5 py-1 text-[11px] font-bold text-stone-600 border border-stone-200/50">
+            {totalItems} {totalItems === 1 ? 'item' : 'items'}
+          </div>
+        </div>
+
+        <button
+          onClick={handleCheckout}
+          disabled={isCreating || items.length === 0 || !client_id}
+          className="w-full rounded-xl bg-[#541919] py-3.5 text-sm font-bold text-white shadow-md shadow-[#541919]/10 hover:bg-[#421313] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2 mt-2 md:mt-4"
+        >
+          {isCreating ? (
+            <>
+              <Loader2 size={16} className="animate-spin" />
+              <span>Procesando venta...</span>
+            </>
+          ) : (
+            <>
+              <Save size={16} className="stroke-[2.5]" />
+              <span>Guardar Venta</span>
+            </>
+          )}
+        </button>
+
+      </div>
+      {/* Espaciador para evitar solapamiento del panel fijo inferior en móvil */}
+      <div className="h-20 md:hidden" />
     </MainLayout>
+    </>
   );
 }

@@ -1,17 +1,18 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Client } from '@/types';
 import { CreateClientInput, UpdateClientInput } from '@/schemas/client.schema';
+import { authFetch } from '@/lib/api';
 
 // Helper de peticiones fetch
 async function fetchClients(): Promise<Client[]> {
-  const res = await fetch('/api/clients');
+  const res = await authFetch('/api/clients');
   const json = await res.json();
   if (!json.success) throw new Error(json.error);
   return json.data;
 }
 
 async function createClient(input: CreateClientInput): Promise<Client> {
-  const res = await fetch('/api/clients', {
+  const res = await authFetch('/api/clients', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
@@ -22,7 +23,7 @@ async function createClient(input: CreateClientInput): Promise<Client> {
 }
 
 async function updateClient({ id, input }: { id: string; input: UpdateClientInput }): Promise<Client> {
-  const res = await fetch(`/api/clients/${id}`, {
+  const res = await authFetch(`/api/clients/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
@@ -33,7 +34,7 @@ async function updateClient({ id, input }: { id: string; input: UpdateClientInpu
 }
 
 async function deleteClient(id: string): Promise<void> {
-  const res = await fetch(`/api/clients/${id}`, {
+  const res = await authFetch(`/api/clients/${id}`, {
     method: 'DELETE',
   });
   const json = await res.json();

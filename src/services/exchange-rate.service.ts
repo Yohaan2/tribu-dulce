@@ -1,24 +1,15 @@
-import { createServerClient } from '@/lib/supabase/server';
+import { db } from '@/lib/db';
 import { ExchangeRate } from '@/types';
 
 export class ExchangeRateService {
   static async getLatest(): Promise<ExchangeRate> {
-    const supabase = await createServerClient();
-    const { data, error } = await supabase
-      .from('exchange_rates')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(1);
+    const rate = await db.getLatestExchangeRate();
 
-    if (error) {
-      console.error('Error fetching exchange rate:', error.message);
-    }
-
-    if (data && data.length > 0) {
+    if (rate) {
       // Verificar si la tasa es del día de hoy
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const rateDate = new Date(data[0].created_at);
+      const rateDate = new Date(rate.created_at);
       rateDate.setHours(0, 0, 0, 0);
 
       // Si la tasa no es de hoy, intentar sincronizar con la API externa
@@ -28,11 +19,11 @@ export class ExchangeRateService {
           return syncedRate;
         } catch (syncError) {
           console.error('Error syncing from API, using cached rate:', syncError);
-          return data[0];
+          return rate;
         }
       }
 
-      return data[0];
+      return rate;
     }
 
     // Si no hay registros, intentar sincronizar con la API externa
@@ -70,14 +61,6 @@ export class ExchangeRateService {
   }
 
   static async create(rate: number, source: string): Promise<ExchangeRate> {
-    const supabase = await createServerClient();
-    const { data, error } = await supabase
-      .from('exchange_rates')
-      .insert({ rate, source })
-      .select()
-      .single();
-
-    if (error) throw new Error(error.message);
-    return data;
+    return await db.createExchangeRate(rate, source);
   }
 }

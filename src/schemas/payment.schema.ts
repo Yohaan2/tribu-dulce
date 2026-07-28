@@ -6,4 +6,12 @@ export const CreatePaymentSchema = z.object({
   amount_bs: z.number().min(0, { message: 'El monto en bolívares debe ser positivo.' }),
 });
 
+export const CreateClientPaymentSchema = z.object({
+  client_id: z.string().uuid({ message: 'El ID del cliente debe ser un UUID válido.' }),
+  amount_usd: z.number().min(0, { message: 'El monto en dólares debe ser positivo.' }),
+  amount_bs: z.number().min(0, { message: 'El monto en bolívares debe ser positivo.' }),
+});
+
 export type CreatePaymentInput = z.infer<typeof CreatePaymentSchema>;
+export type CreateClientPaymentInput = z.infer<typeof CreateClientPaymentSchema>;
+

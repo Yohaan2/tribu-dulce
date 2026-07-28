@@ -15,7 +15,7 @@ export function Header({ onMenuToggle, title = 'Tribu Dulce' }: HeaderProps) {
   const { exchangeRate } = useExchangeRate();
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-slate-100 bg-white px-6 shadow-sm">
+    <header className="flex h-16 items-center justify-between border-b border-slate-100 bg-white px-6">
       {/* Lado Izquierdo: Toggle Móvil y Título */}
       <div className="flex items-center gap-4">
         <button
@@ -41,7 +41,7 @@ export function Header({ onMenuToggle, title = 'Tribu Dulce' }: HeaderProps) {
         {/* Info Perfil */}
         {user && (
           <div className="flex items-center gap-3 border-l border-slate-100 pl-4">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-tr from-pink-500 to-rose-400 text-sm font-bold text-white shadow-sm">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-pink-500 text-sm font-bold text-white shadow-sm">
               {user.name.substring(0, 2).toUpperCase()}
             </div>
             <div className="hidden text-left md:block">

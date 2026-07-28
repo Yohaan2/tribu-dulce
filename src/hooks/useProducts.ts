@@ -1,16 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Product } from '@/types';
 import { CreateProductInput, UpdateProductInput } from '@/schemas/product.schema';
+import { authFetch } from '@/lib/api';
 
 async function fetchProducts(): Promise<Product[]> {
-  const res = await fetch('/api/products');
+  const res = await authFetch('/api/products');
   const json = await res.json();
   if (!json.success) throw new Error(json.error);
   return json.data;
 }
 
 async function createProduct(input: CreateProductInput): Promise<Product> {
-  const res = await fetch('/api/products', {
+  const res = await authFetch('/api/products', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
@@ -21,7 +22,7 @@ async function createProduct(input: CreateProductInput): Promise<Product> {
 }
 
 async function updateProduct({ id, input }: { id: string; input: UpdateProductInput }): Promise<Product> {
-  const res = await fetch(`/api/products/${id}`, {
+  const res = await authFetch(`/api/products/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
@@ -32,7 +33,7 @@ async function updateProduct({ id, input }: { id: string; input: UpdateProductIn
 }
 
 async function deleteProduct(id: string): Promise<void> {
-  const res = await fetch(`/api/products/${id}`, {
+  const res = await authFetch(`/api/products/${id}`, {
     method: 'DELETE',
   });
   const json = await res.json();

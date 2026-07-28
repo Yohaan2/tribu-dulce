@@ -5,13 +5,14 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { useDebts } from '@/hooks/useDebts';
 import { useExchangeRate } from '@/hooks/useExchangeRate';
 import { formatCurrencyUsd, formatCurrencyBs } from '@/lib/utils';
-import {  
-  CircleDollarSign, 
-  CreditCard, 
-  Search, 
-  X, 
+import {
+  CircleDollarSign,
+  CreditCard,
+  Search,
+  X,
   Phone,
-  MessageSquareText 
+  MessageSquareText,
+  TriangleAlert
 } from 'lucide-react';
 
 export default function DebtsPage() {
@@ -78,39 +79,146 @@ export default function DebtsPage() {
     return diffDays > 7;
   };
 
-  // Filtrar deudas
-  const filteredDebts = useMemo(() => {
-    return debts.filter((sale) => {
-      // 1. Filtro de búsqueda por cliente
-      const clientName = sale.client?.name?.toLowerCase() || '';
-      const matchesSearch = clientName.includes(searchQuery.toLowerCase());
-      if (!matchesSearch) return false;
+  const formatPhone = (phone: string) => {
+    if (!phone) return '';
+    const cleaned = phone.replace('0', '');
+    console.log(cleaned)
+    return `https://wa.me/+58${cleaned}`;
+  };
 
-      // 2. Filtro por rango de fecha
-      if (activeFilter === 'TODAS') return true;
+  // Agrupar deudas por cliente
+  const groupedDebts = useMemo(() => {
+    const groups: Record<string, any> = {};
 
-      const saleDate = new Date(sale.created_at);
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const saleDay = new Date(saleDate.getFullYear(), saleDate.getMonth(), saleDate.getDate());
+    debts.forEach((sale) => {
+      const clientId = sale.client?.id;
+      if (!clientId) return;
 
-      if (activeFilter === 'HOY') {
-        return saleDay.getTime() === today.getTime();
+      const paid = getAccumulatedPaid(sale);
+      const outstandingUsd = Number(sale.total_usd) - paid;
+      if (outstandingUsd <= 0) return;
+
+      if (!groups[clientId]) {
+        groups[clientId] = {
+          id: clientId,
+          client: sale.client,
+          total_usd: 0,
+          sales: [],
+          created_at: sale.created_at, // Oldest sale's date initialized
+          productCount: 0,
+        };
       }
 
-      if (activeFilter === 'SEMANA') {
-        const oneWeekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-        return saleDay >= oneWeekAgo;
-      }
+      groups[clientId].total_usd += outstandingUsd;
+      groups[clientId].sales.push(sale);
+      groups[clientId].productCount += (sale.items || []).reduce((acc: number, item: any) => acc + Number(item.quantity), 0);
 
-      if (activeFilter === 'MES') {
-        const oneMonthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-        return saleDay >= oneMonthAgo;
+      // Mantener la fecha del pedido más antiguo para calcular el vencimiento
+      if (new Date(sale.created_at).getTime() < new Date(groups[clientId].created_at).getTime()) {
+        groups[clientId].created_at = sale.created_at;
       }
-
-      return true;
     });
-  }, [debts, searchQuery, activeFilter]);
+
+    const list = Object.values(groups);
+    // Ordenar deudas de mayor a menor
+    list.sort((a: any, b: any) => b.total_usd - a.total_usd);
+    return list;
+  }, [debts]);
+
+  // Filtrar deudas agrupadas por cliente
+  const filteredDebts = useMemo(() => {
+    return groupedDebts.map((clientDebt) => {
+      // Filtrar las ventas individuales del cliente que coinciden con el filtro de fecha
+      const filteredSales = clientDebt.sales.filter((sale: any) => {
+        if (activeFilter === 'TODAS') return true;
+
+        const saleDate = new Date(sale.created_at);
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const saleDay = new Date(saleDate.getFullYear(), saleDate.getMonth(), saleDate.getDate());
+
+        if (activeFilter === 'HOY') {
+          return saleDay.getTime() === today.getTime();
+        }
+
+        if (activeFilter === 'SEMANA') {
+          const oneWeekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+          return saleDay >= oneWeekAgo;
+        }
+
+        if (activeFilter === 'MES') {
+          const oneMonthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+          return saleDay >= oneMonthAgo;
+        }
+
+        return true;
+      });
+
+      if (filteredSales.length === 0) return null;
+
+      // Recalcular montos y estadísticas para las ventas filtradas
+      const total_usd = filteredSales.reduce((sum: number, sale: any) => {
+        const paid = getAccumulatedPaid(sale);
+        return sum + (Number(sale.total_usd) - paid);
+      }, 0);
+
+      const productCount = filteredSales.reduce((sum: number, sale: any) => {
+        return sum + (sale.items || []).reduce((acc: number, item: any) => acc + Number(item.quantity), 0);
+      }, 0);
+
+      const oldestCreatedAt = filteredSales.reduce((oldest: string, sale: any) => {
+        return new Date(sale.created_at).getTime() < new Date(oldest).getTime() ? sale.created_at : oldest;
+      }, filteredSales[0].created_at);
+
+      return {
+        ...clientDebt,
+        sales: filteredSales,
+        total_usd,
+        productCount,
+        created_at: oldestCreatedAt,
+      };
+    })
+      .filter((cd): cd is any => cd !== null)
+      .filter((cd) => {
+        // Filtrar por nombre del cliente
+        const clientName = cd.client?.name?.toLowerCase() || '';
+        return clientName.includes(searchQuery.toLowerCase());
+      });
+  }, [groupedDebts, searchQuery, activeFilter]);
+
+  // Agrupar items de pedidos por día
+  const getGroupedItemsByDay = (sales: any[]) => {
+    const groups: { [key: string]: any[] } = {};
+
+    // Ordenar de más reciente a más antiguo
+    const sortedSales = [...sales].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    sortedSales.forEach((sale) => {
+      const dayKey = new Date(sale.created_at).toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+
+      if (!groups[dayKey]) {
+        groups[dayKey] = [];
+      }
+
+      if (sale.items) {
+        sale.items.forEach((item: any) => {
+          groups[dayKey].push({
+            ...item,
+            created_at: sale.created_at,
+          });
+        });
+      }
+    });
+
+    return Object.entries(groups).map(([dateStr, items]) => ({
+      dateStr,
+      items,
+    }));
+  };
 
   const handlePaySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,7 +226,7 @@ export default function DebtsPage() {
 
     try {
       await payDebt({
-        saleId: selectedSale.id,
+        clientId: selectedSale.client.id,
         amountUsd: parseFloat(amountUsd),
         amountBs: parseFloat(amountBs || '0'),
       });
@@ -135,7 +243,7 @@ export default function DebtsPage() {
   return (
     <MainLayout title="Cuentas por Cobrar">
       <div className="space-y-6">
-        
+
 
         {/* Buscador y Filtros por Tags */}
         <div className="space-y-4">
@@ -162,11 +270,10 @@ export default function DebtsPage() {
                 <button
                   key={filter}
                   onClick={() => setActiveFilter(filter)}
-                  className={`rounded-full px-5 py-2 text-sm font-bold transition-all ${
-                    isActive
-                      ? 'bg-[#5C2320] text-white shadow-sm shadow-[#5C2320]/15'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200/80'
-                  }`}
+                  className={`rounded-full px-5 py-2 text-sm font-bold transition-all ${isActive
+                    ? 'bg-[#5C2320] text-white shadow-sm shadow-[#5C2320]/15'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200/80'
+                    }`}
                 >
                   {labelMap[filter]}
                 </button>
@@ -190,41 +297,47 @@ export default function DebtsPage() {
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredDebts.map((sale) => {
-              const paid = getAccumulatedPaid(sale);
-              const outstandingUsd = Number(sale.total_usd) - paid;
+            {filteredDebts.map((clientDebt) => {
+              const outstandingUsd = clientDebt.total_usd;
               const outstandingBs = outstandingUsd * rate;
-              const productCount = (sale.items || []).reduce((acc: number, item: any) => acc + Number(item.quantity), 0);
-              const isOverdue = checkIfOverdue(sale.created_at);
+              const productCount = clientDebt.productCount;
+              const isOverdue = checkIfOverdue(clientDebt.created_at);
 
               return (
-                <div key={sale.id} className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm space-y-4 hover:shadow-md transition-shadow">
+                <div key={clientDebt.id} className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm space-y-4 hover:shadow-md transition-shadow">
                   {/* Fila Superior de Tarjeta */}
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-3 min-w-0">
                       {/* Avatar de Iniciales */}
                       <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-100 font-black text-slate-600 text-sm">
-                        {getInitials(sale.client?.name || '')}
+                        {getInitials(clientDebt.client?.name || '')}
                       </div>
                       <div className="min-w-0">
                         <h4 className="text-base font-extrabold text-slate-800 leading-snug truncate">
-                          {sale.client?.name || 'Cliente desconocido'}
+                          {clientDebt.client?.name || 'Cliente desconocido'}
                         </h4>
                         <p className="text-xs text-slate-400 truncate">
-                          {formatDateCard(sale.created_at)} • {productCount} {productCount === 1 ? 'producto' : 'productos'}
+                          {formatDateCard(clientDebt.created_at)} • {productCount} {productCount === 1 ? 'producto' : 'productos'}
                         </p>
                       </div>
                     </div>
 
                     {/* Insignia de Estado */}
                     <span
-                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold shrink-0 border ${
-                        isOverdue
-                          ? 'bg-rose-50 text-rose-600 border-rose-100'
-                          : 'bg-amber-50 text-amber-700 border-amber-100'
-                      }`}
+                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold shrink-0 border ${isOverdue
+                        ? 'bg-rose-50 text-rose-600 border-rose-100'
+                        : 'bg-amber-50 text-amber-700 border-amber-100'
+                        }`}
                     >
-                      {isOverdue ? '! Vencido' : '🕒 Pendiente'}
+                      {isOverdue ? (
+                        <>
+                          <TriangleAlert size={14} /> Vencido
+                        </>
+                      ) : (
+                        <>
+                          <CircleDollarSign size={14} /> Pendiente
+                        </>
+                      )}
                     </span>
                   </div>
 
@@ -247,14 +360,14 @@ export default function DebtsPage() {
                   {/* Fila Inferior de Tarjeta: Acciones */}
                   <div className="grid grid-cols-2 gap-3 pt-2">
                     <button
-                      onClick={() => setSelectedDetailSale(sale)}
+                      onClick={() => setSelectedDetailSale(clientDebt)}
                       className="w-full rounded-2xl border border-slate-200 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-800 active:scale-[0.98] transition-all cursor-pointer text-center"
                     >
                       Ver detalle
                     </button>
                     <button
                       onClick={() => {
-                        setSelectedSale(sale);
+                        setSelectedSale(clientDebt);
                         setAmountUsd(outstandingUsd.toFixed(2));
                         setAmountBs(outstandingBs.toFixed(2));
                       }}
@@ -272,7 +385,7 @@ export default function DebtsPage() {
         {/* Modal de Detalle de Venta - Bottom Sheet */}
         {selectedDetailSale && (
           <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 backdrop-blur-[2px] animate-fade-in" onClick={() => setSelectedDetailSale(null)}>
-            <div 
+            <div
               className="relative w-full max-w-md bg-white rounded-t-[32px] p-6 pb-8 shadow-2xl border-t border-[#EADED9] animate-slide-up"
               onClick={(e) => e.stopPropagation()}
             >
@@ -280,7 +393,7 @@ export default function DebtsPage() {
               <div className="w-12 h-1 bg-[#E0D5D1] rounded-full mx-auto mb-5"></div>
 
               {/* Botón Cerrar */}
-              <button 
+              <button
                 onClick={() => setSelectedDetailSale(null)}
                 className="absolute top-6 right-6 p-2 rounded-full bg-[#F5F2F0] text-slate-500 hover:text-slate-800 transition-colors"
               >
@@ -290,15 +403,15 @@ export default function DebtsPage() {
               {/* Título */}
               <div className="mb-5">
                 <h3 className="text-xl font-black text-[#5C2320] tracking-tight">
-                  Detalle de Transacción
+                  Detalle de Transacciones
                 </h3>
                 <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-wide">
-                  {new Date(selectedDetailSale.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })} a las {new Date(selectedDetailSale.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                  Cuenta agrupada • {selectedDetailSale.sales.length} {selectedDetailSale.sales.length === 1 ? 'pedido pendiente' : 'pedidos pendientes'}
                 </p>
               </div>
 
               {/* Info Cliente */}
-              <div className="border border-[#F2ECE9] bg-[#FAF8F6] p-4 rounded-2xl flex items-center justify-between mb-4">
+              <div className="border border-[#F2ECE9] bg-[#FAF8F6] px-3 py-2 rounded-2xl flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-pink-50 text-pink-600 border border-pink-100/30 font-black text-xs">
                     {selectedDetailSale.client?.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
@@ -309,23 +422,37 @@ export default function DebtsPage() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Referencia</p>
-                  <p className="text-xs font-black text-[#5C2320]">{selectedDetailSale.id.slice(0, 8).toUpperCase()}</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pedidos</p>
+                  <p className="text-xs font-black text-[#5C2320]">{selectedDetailSale.sales.length}</p>
                 </div>
               </div>
 
 
               {/* Lista de Productos */}
               <div className="mb-4">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Productos</h4>
-                <div className="max-h-[140px] overflow-y-auto border border-[#F2ECE9] rounded-2xl divide-y divide-[#F2ECE9]">
-                  {(selectedDetailSale.items || []).map((item: any) => (
-                    <div key={item.id} className="flex justify-between items-center p-3 text-sm">
-                      <div className="min-w-0">
-                        <span className="font-bold text-slate-800 block truncate">{item.product?.name}</span>
-                        <span className="text-xs text-slate-400">{item.quantity} x {formatCurrencyUsd(item.unit_price)}</span>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Productos por fecha</h4>
+                <div className="max-h-[160px] overflow-y-auto pr-1 space-y-3">
+                  {getGroupedItemsByDay(selectedDetailSale.sales).map((group) => (
+                    <div key={group.dateStr} className="space-y-1">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wide text-slate-400 block px-1">
+                        {group.dateStr}
+                      </span>
+                      <div className="border border-[#F2ECE9] rounded-2xl divide-y divide-[#F2ECE9] bg-slate-50/50">
+                        {group.items.map((item: any, idx: number) => (
+                          <div key={idx} className="flex justify-between items-center px-3 py-2 text-sm">
+                            <div className="min-w-0">
+                              <span className="font-bold text-slate-800 block truncate">{item.product?.name}</span>
+                              <span className="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5">
+                                <span>{item.quantity} x {formatCurrencyUsd(item.unit_price)}</span>
+                                <span className="text-[10px] text-slate-400">
+                                  ({new Date(item.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })})
+                                </span>
+                              </span>
+                            </div>
+                            <span className="font-extrabold text-slate-700">{formatCurrencyUsd(item.subtotal)}</span>
+                          </div>
+                        ))}
                       </div>
-                      <span className="font-extrabold text-slate-700">{formatCurrencyUsd(item.subtotal)}</span>
                     </div>
                   ))}
                 </div>
@@ -334,27 +461,38 @@ export default function DebtsPage() {
               {/* Historial de Abonos */}
               <div className="mb-4">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Historial de Pagos / Abonos</h4>
-                {(selectedDetailSale.payments || []).length === 0 ? (
-                  <p className="text-xs text-slate-400 italic bg-[#FAF8F6] p-3 rounded-xl border border-[#F2ECE9] text-center">No se han registrado abonos previos.</p>
-                ) : (
-                  <div className="max-h-[100px] overflow-y-auto border border-[#F2ECE9] rounded-2xl divide-y divide-[#F2ECE9]">
-                    {selectedDetailSale.payments.map((pay: any, idx: number) => (
-                      <div key={pay.id} className="flex justify-between items-center p-3 text-xs">
-                        <div>
-                          <span className="font-bold text-slate-700">Abono #{idx + 1}</span>
-                          <span className="text-[10px] text-slate-400 block">{formatDateCard(pay.created_at)}</span>
+                {(() => {
+                  const allPayments = selectedDetailSale.sales
+                    .flatMap((sale: any) => (sale.payments || []).map((pay: any) => ({ ...pay, sale_id: sale.id })))
+                    .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+                  return allPayments.length === 0 ? (
+                    <p className="text-xs text-slate-400 italic bg-[#FAF8F6] p-3 rounded-xl border border-[#F2ECE9] text-center">No se han registrado abonos previos.</p>
+                  ) : (
+                    <div className="max-h-[100px] overflow-y-auto border border-[#F2ECE9] rounded-2xl divide-y divide-[#F2ECE9]">
+                      {allPayments.map((pay: any, idx: number) => (
+                        <div key={pay.id} className="flex justify-between items-center p-3 text-xs">
+                          <div>
+                            <span className="font-bold text-slate-700">Abono #{allPayments.length - idx}</span>
+                            <span className="text-[10px] text-slate-400 block">
+                              {formatDateCard(pay.created_at)}
+                              <span className="text-[9px] text-slate-400 ml-1">
+                                ({new Date(pay.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })})
+                              </span>
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <span className="font-extrabold text-emerald-600 block">{formatCurrencyUsd(pay.amount_usd)}</span>
+                            <span className="text-[10px] text-slate-400">{formatCurrencyBs(pay.amount_bs)}</span>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <span className="font-extrabold text-emerald-600 block">{formatCurrencyUsd(pay.amount_usd)}</span>
-                          <span className="text-[10px] text-slate-400">{formatCurrencyBs(pay.amount_bs)}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
 
-                            {/* Recuadro de Teléfono del Cliente */}
+              {/* Recuadro de Teléfono del Cliente */}
               {selectedDetailSale.client?.phone && (
                 <div className="bg-[#5C2320] rounded-2xl p-4 mb-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -364,39 +502,47 @@ export default function DebtsPage() {
                     </div>
                   </div>
                   <div className="flex gap-2">
-
-                  <a
-                    href={`tel:${selectedDetailSale.client.phone}`}
-                    className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors"
+                    <a
+                      href={`tel:${selectedDetailSale.client.phone}`}
+                      className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors"
                     >
-                    <Phone size={18} />
-                  </a>
-
-                  <a href={`https://wa.me/${selectedDetailSale.client.phone}`} target="_blank" rel="noopener noreferrer"
-                  className='flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors'>
-                    <MessageSquareText size={18} />
-                  </a>
-                    </div>
+                      <Phone size={18} />
+                    </a>
+                    <a href={formatPhone(selectedDetailSale.client.phone)} target="_blank" rel="noopener noreferrer"
+                      className='flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors'>
+                      <MessageSquareText size={18} />
+                    </a>
+                  </div>
                 </div>
               )}
 
               {/* Totales Resumen */}
-              <div className="border-t border-[#F2ECE9] pt-4 space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-semibold">Total Facturado:</span>
-                  <span className="font-bold text-slate-700">{formatCurrencyUsd(selectedDetailSale.total_usd)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-semibold">Total Abonado:</span>
-                  <span className="font-bold text-emerald-600">{formatCurrencyUsd(getAccumulatedPaid(selectedDetailSale))}</span>
-                </div>
-                <div className="flex justify-between border-t border-[#F2ECE9] pt-3 text-base">
-                  <span className="text-slate-800 font-extrabold">Pendiente de Cobro:</span>
-                  <span className="font-black text-[#5C2320]">
-                    {formatCurrencyUsd(Number(selectedDetailSale.total_usd) - getAccumulatedPaid(selectedDetailSale))}
-                  </span>
-                </div>
-              </div>
+              {(() => {
+                const totalFacturado = selectedDetailSale.sales.reduce((sum: number, sale: any) => sum + Number(sale.total_usd), 0);
+                const totalAbonado = selectedDetailSale.sales.reduce((sum: number, sale: any) => {
+                  return sum + (sale.payments || []).reduce((acc: number, p: any) => acc + Number(p.amount_usd), 0);
+                }, 0);
+                const totalPendiente = totalFacturado - totalAbonado;
+
+                return (
+                  <div className="border-t border-[#F2ECE9] pt-4 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 font-semibold">Total Facturado:</span>
+                      <span className="font-bold text-slate-700">{formatCurrencyUsd(totalFacturado)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 font-semibold">Total Abonado:</span>
+                      <span className="font-bold text-emerald-600">{formatCurrencyUsd(totalAbonado)}</span>
+                    </div>
+                    <div className="flex justify-between border-t border-[#F2ECE9] pt-3 text-base">
+                      <span className="text-slate-800 font-extrabold">Pendiente de Cobro:</span>
+                      <span className="font-black text-[#5C2320]">
+                        {formatCurrencyUsd(totalPendiente)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
 
               <button
                 onClick={() => setSelectedDetailSale(null)}
@@ -417,27 +563,23 @@ export default function DebtsPage() {
                   <CreditCard className="text-[#5C2320]" size={18} />
                   <span>Registrar Pago / Abono</span>
                 </h3>
-                <button 
+                <button
                   onClick={() => setSelectedSale(null)}
                   className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
                 >
                   <X size={20} />
                 </button>
               </div>
-              
+
               <div className="rounded-2xl bg-slate-50 p-4 mb-4 text-xs space-y-2 text-slate-600 border border-slate-100">
                 <div className="flex justify-between">
                   <span className="font-semibold">Cliente:</span>
                   <span className="font-bold text-slate-800">{selectedSale.client?.name}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="font-semibold">Total de Venta:</span>
-                  <span className="font-bold text-slate-800">{formatCurrencyUsd(selectedSale.total_usd)}</span>
-                </div>
                 <div className="flex justify-between border-t border-slate-200/50 pt-2">
                   <span className="font-semibold text-slate-700">Total Pendiente:</span>
                   <span className="font-black text-rose-600 text-sm">
-                    {formatCurrencyUsd(Number(selectedSale.total_usd) - getAccumulatedPaid(selectedSale))}
+                    {formatCurrencyUsd(selectedSale.total_usd)}
                   </span>
                 </div>
               </div>

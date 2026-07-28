@@ -1,16 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Sale, Payment } from '@/types';
+import { authFetch } from '@/lib/api';
 
 async function fetchDebts(): Promise<Sale[]> {
-  const res = await fetch('/api/debts');
+  const res = await authFetch('/api/debts');
   const json = await res.json();
   if (!json.success) throw new Error(json.error);
   return json.data;
 }
 
-async function payDebt({ saleId, amountUsd, amountBs }: { saleId: string; amountUsd: number; amountBs: number }): Promise<Payment> {
-  const res = await fetch(`/api/debts/${saleId}/pay`, {
-    method: 'PATCH',
+async function payDebt({ clientId, amountUsd, amountBs }: { clientId: string; amountUsd: number; amountBs: number }): Promise<any> {
+  const res = await authFetch(`/api/clients/${clientId}/pay`, {
+    method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ amount_usd: amountUsd, amount_bs: amountBs }),
   });

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { UserProfile, UserRole } from '@/types';
-import { createClient } from '@/lib/supabase/client';
+import { authProvider } from '@/lib/auth';
 
 interface AuthState {
   user: UserProfile | null;
@@ -19,46 +19,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setLoading: (loading) => set({ loading }),
   initializeAuth: async () => {
     set({ loading: true });
-    if (typeof window !== 'undefined') {
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session?.user) {
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-
-        if (!profileError && profileData) {
-          set({
-            user: {
-              id: session.user.id,
-              name: profileData.name || session.user.email?.split('@')[0] || 'Usuario',
-              role: profileData.role || 'EMPLOYEE',
-              created_at: profileData.created_at || session.user.created_at,
-            },
-            loading: false,
-          });
-        } else {
-          set({ user: null, loading: false });
-        }
-      } else {
-        set({ user: null, loading: false });
-      }
-    } else {
-      set({ loading: false });
+    try {
+      const user = await authProvider.getCurrentUser();
+      set({ user, loading: false });
+    } catch (error) {
+      console.error('Error inicializando auth:', error);
+      set({ user: null, loading: false });
     }
   },
   logout: async () => {
     set({ loading: true });
-    if (typeof window !== 'undefined') {
-      const supabase = createClient();
-      await supabase.auth.signOut();
+    try {
+      await authProvider.logout();
       set({ user: null, loading: false });
-      window.location.href = '/login';
-    } else {
-      set({ user: null, loading: false });
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+      set({ loading: false });
     }
   },
   hasRole: (roles) => {

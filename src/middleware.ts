@@ -1,6 +1,18 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
+function isTokenValid(token: string): boolean {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return false;
+    const payload = JSON.parse(atob(parts[1]));
+    if (!payload.exp) return true;
+    return Date.now() < payload.exp * 1000;
+  } catch {
+    return false;
+  }
+}
+
 export async function middleware(request: NextRequest) {
   // Inicializar respuesta base
   let response = NextResponse.next({
@@ -21,7 +33,32 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // 1. Configurar cliente de Supabase
+  const provider = process.env.DATABASE_PROVIDER?.toLowerCase() || 'postgres';
+  const protectedRoutes = ['/dashboard', '/clients', '/products', '/sales', '/sales-history', '/debts', '/calendar', '/settings'];
+  const isProtectedRoute = protectedRoutes.some((route) => nextPath === route || nextPath.startsWith(`${route}/`));
+
+  // =========================================================================
+  // FLUJO POSTGRES AUTH
+  // =========================================================================
+  if (provider === 'postgres') {
+    const tokenCookie = request.cookies.get('auth_token');
+    const token = tokenCookie?.value;
+    const isAuthenticated = !!token && isTokenValid(token);
+
+    if (isProtectedRoute && !isAuthenticated) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+
+    if (isAuthenticated && (nextPath === '/login' || nextPath === '/')) {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+
+    return response;
+  }
+
+  // =========================================================================
+  // FLUJO SUPABASE AUTH
+  // =========================================================================
   try {
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
@@ -51,10 +88,6 @@ export async function middleware(request: NextRequest) {
 
     const isAuthenticated = !!user;
 
-    // Rutas protegidas
-    const protectedRoutes = ['/dashboard', '/clients', '/products', '/sales', '/sales-history', '/debts', '/calendar', '/settings'];
-    const isProtectedRoute = protectedRoutes.some((route) => nextPath === route || nextPath.startsWith(`${route}/`));
-
     if (isProtectedRoute && !isAuthenticated) {
       // Redirigir a login
       return NextResponse.redirect(new URL('/login', request.url));
@@ -66,7 +99,7 @@ export async function middleware(request: NextRequest) {
     }
 
   } catch (error) {
-    console.error('Error en middleware:', error);
+    console.error('Error en middleware Supabase:', error);
   }
 
   return response;
