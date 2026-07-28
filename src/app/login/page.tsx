@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { ShieldCheck, UserCheck, Lock, Mail, ArrowRight, AlertCircle, Eye, EyeOff } from 'lucide-react';
@@ -223,16 +224,17 @@ export default function LoginPage() {
 
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center bg-[#FCF8F7] px-6 py-12 select-none">
-      <div className="w-full max-w-[390px]">
+      <div className="w-full max-w-97.5">
         <div className="flex justify-center mb-8">
-          <div className="flex h-32 w-32 items-center justify-center rounded-full bg-white shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
-            <div className="relative flex h-[104px] w-[104px] flex-col items-center justify-center rounded-full border border-[#541919]/60 bg-white">
-              <div className="absolute top-[12%] h-7 w-14 rounded-full bg-[#E5B5B2]/30 blur-[6px]" />
-              <span className="z-10 text-[11px] font-extrabold tracking-wider text-[#541919] font-sans">
-                TRIBU DULCE
-              </span>
-              <div className="mt-1 h-1.5 w-7 border-t-2 border-[#541919]/70 rounded-[50%]" />
-            </div>
+          <div>
+            <Image
+              src="/tribu-logo.png"
+              alt="Tribu Dulce Logo"
+              width={128}
+              height={128}
+              className="h-full w-full object-contain rounded-full"
+              priority
+            />
           </div>
         </div>
 

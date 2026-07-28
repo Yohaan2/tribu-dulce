@@ -11,6 +11,7 @@ const withPWA = withPWAInit({
 const nextConfig: NextConfig = {
   output: 'standalone',
   serverExternalPackages: ['typeorm'],
+  turbopack: {},
 };
 
 export default withPWA(nextConfig);
