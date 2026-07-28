@@ -27,7 +27,7 @@ export function Header({ onMenuToggle, title = 'Tribu Dulce' }: HeaderProps) {
       <div className="flex items-center gap-4">
         <button
           onClick={onMenuToggle}
-          className="hidden h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+          className="flex md:hidden h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 active:bg-slate-100 transition-colors"
         >
           <Menu size={20} />
         </button>
@@ -40,8 +40,7 @@ export function Header({ onMenuToggle, title = 'Tribu Dulce' }: HeaderProps) {
         {exchangeRate && (
           <div className="flex items-center gap-2 rounded-full bg-amber-50 border border-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
             <TrendingUp size={16} className="text-amber-600" />
-            <span>Tasa del día:</span>
-            <span className="font-bold text-amber-900">{formatCurrencyBs(exchangeRate.rate)}</span>
+            <span className="font-bold text-amber-900">$/{formatCurrencyBs(exchangeRate.rate)}</span>
           </div>
         )}
 

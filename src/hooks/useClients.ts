@@ -4,8 +4,8 @@ import { CreateClientInput, UpdateClientInput } from '@/schemas/client.schema';
 import { authFetch } from '@/lib/api';
 
 // Helper de peticiones fetch
-async function fetchClients(): Promise<Client[]> {
-  const res = await authFetch('/api/clients');
+async function fetchClients(page: number = 1, limit: number = 10): Promise<Client[]> {
+  const res = await authFetch(`/api/clients?page=${page}&limit=${limit}`);
   const json = await res.json();
   if (!json.success) throw new Error(json.error);
   return json.data;
@@ -41,12 +41,19 @@ async function deleteClient(id: string): Promise<void> {
   if (!json.success) throw new Error(json.error);
 }
 
-export function useClients() {
+async function getClientByID(id: string): Promise<Client> {
+  const res = await authFetch(`/api/clients/${id}`);
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error);
+  return json.data;
+}
+
+export function useClients(page: number = 1, limit: number = 10) {
   const queryClient = useQueryClient();
 
   const clientsQuery = useQuery({
-    queryKey: ['clients'],
-    queryFn: fetchClients,
+    queryKey: ['clients', page, limit],
+    queryFn: () => fetchClients(page, limit),
   });
 
   const createMutation = useMutation({
@@ -72,6 +79,10 @@ export function useClients() {
     },
   });
 
+  const getClientByIdMutation = useMutation({
+    mutationFn: getClientByID,
+  });
+
   return {
     clients: clientsQuery.data || [],
     isLoading: clientsQuery.isLoading,
@@ -82,5 +93,7 @@ export function useClients() {
     isUpdating: updateMutation.isPending,
     deleteClient: deleteMutation.mutateAsync,
     isDeleting: deleteMutation.isPending,
+    getClientById: getClientByIdMutation.mutateAsync,
+    isGettingClientById: getClientByIdMutation.isPending,
   };
 }

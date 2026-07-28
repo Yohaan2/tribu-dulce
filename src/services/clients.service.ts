@@ -3,14 +3,14 @@ import { Client } from '@/types';
 import { CreateClientInput, UpdateClientInput } from '@/schemas/client.schema';
 
 export class ClientsService {
-  static async getAll(): Promise<Client[]> {
-    const data = await db.getClients();
-    
+  static async getClients(page: number = 1, limit: number = 10): Promise<{ data: any[]; total: number }> {
+    const { data, total } = await db.getClients(page, limit);
+
     // Calcular estadísticas por cliente
     const clientsWithStats = (data || []).map((client: any) => {
       const sales = client.sales || [];
       const totalPurchased = sales.reduce((acc: number, sale: any) => acc + Number(sale.total_usd), 0);
-      
+
       // Calcular deuda pendiente (ventas PENDING/PARTIAL - pagos)
       const pendingSales = sales.filter((s: any) => s.status === 'PENDING' || s.status === 'PARTIAL');
       const totalPaid = pendingSales.reduce((acc: number, sale: any) => {
@@ -27,7 +27,7 @@ export class ClientsService {
       };
     });
 
-    return clientsWithStats;
+    return { data: clientsWithStats, total };
   }
 
   static async getById(id: string): Promise<Client> {

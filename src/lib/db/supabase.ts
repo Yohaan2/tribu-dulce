@@ -12,11 +12,15 @@ export class SupabaseAdapter implements DatabaseAdapter {
   }
 
   // --- CLIENTES ---
-  async getClients(): Promise<Client[]> {
+  async getClients(page?: number, limit?: number): Promise<{ data: Client[]; total: number }> {
     const supabase = await this.getClient();
-    const { data, error } = await supabase
+    const start = page && limit ? (page - 1) * limit : 0;
+    const end = page && limit ? start + limit - 1 : undefined;
+
+    let query = supabase
       .from('clients')
-      .select(`
+      .select(
+        `
         *,
         sales:sales(
           id,
@@ -24,11 +28,19 @@ export class SupabaseAdapter implements DatabaseAdapter {
           status,
           payments(amount_usd)
         )
-      `)
+      `,
+        { count: 'exact' }
+      )
       .order('name', { ascending: true });
 
+    if (end !== undefined) {
+      query = query.range(start, end);
+    }
+
+    const { data, error, count } = await query;
+
     if (error) throw new Error(error.message);
-    return data || [];
+    return { data: (data || []) as Client[], total: count || 0 };
   }
 
   async getClientById(id: string): Promise<Client> {

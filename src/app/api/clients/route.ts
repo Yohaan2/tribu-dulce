@@ -2,10 +2,22 @@ import { NextResponse } from 'next/server';
 import { ClientsService } from '@/services/clients.service';
 import { CreateClientSchema } from '@/schemas/client.schema';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const clients = await ClientsService.getAll();
-    return NextResponse.json({ success: true, data: clients });
+    const { searchParams } = new URL(request.url);
+    const parsedPage = parseInt(searchParams.get('page') || '1', 10);
+    const parsedLimit = parseInt(searchParams.get('limit') || '10', 10);
+    const page = Number.isNaN(parsedPage) ? 1 : Math.max(1, parsedPage);
+    const limit = Number.isNaN(parsedLimit) ? 10 : Math.max(1, parsedLimit);
+
+    const { data, total } = await ClientsService.getClients(page, limit);
+    const totalPages = Math.ceil(total / limit);
+
+    return NextResponse.json({
+      success: true,
+      data,
+      pagination: { page, limit, total, totalPages },
+    });
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error.message || 'Error al obtener clientes' },

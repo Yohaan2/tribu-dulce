@@ -6,7 +6,7 @@ import { CreatePaymentInput } from '@/schemas/payment.schema';
 
 export interface DatabaseAdapter {
   // --- CLIENTES ---
-  getClients(): Promise<Client[]>;
+  getClients(page?: number, limit?: number): Promise<{ data: Client[]; total: number }>;
   getClientById(id: string): Promise<Client>;
   createClient(input: CreateClientInput): Promise<Client>;
   updateClient(id: string, input: UpdateClientInput): Promise<Client>;

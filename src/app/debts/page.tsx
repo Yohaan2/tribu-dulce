@@ -12,7 +12,10 @@ import {
   X,
   Phone,
   MessageSquareText,
-  TriangleAlert
+  TriangleAlert,
+  LayoutGrid,
+  List,
+  ChevronRight
 } from 'lucide-react';
 
 export default function DebtsPage() {
@@ -22,6 +25,7 @@ export default function DebtsPage() {
   // Estados de filtros y búsqueda
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<'TODAS' | 'HOY' | 'SEMANA' | 'MES'>('TODAS');
+  const [viewMode, setViewMode] = useState<'cards' | 'list'>('list');
 
   // Estados para modal de abono
   const [selectedSale, setSelectedSale] = useState<any | null>(null);
@@ -261,28 +265,54 @@ export default function DebtsPage() {
             />
           </div>
 
-          {/* Tags de Filtrado */}
-          <div className="flex flex-wrap gap-2 overflow-x-auto pb-1 no-scrollbar">
-            {(['TODAS', 'HOY', 'SEMANA', 'MES'] as const).map((filter) => {
-              const labelMap = { TODAS: 'Todas', HOY: 'Hoy', SEMANA: 'Semana', MES: 'Mes' };
-              const isActive = activeFilter === filter;
-              return (
-                <button
-                  key={filter}
-                  onClick={() => setActiveFilter(filter)}
-                  className={`rounded-full px-5 py-2 text-sm font-bold transition-all ${isActive
-                    ? 'bg-[#5C2320] text-white shadow-sm shadow-[#5C2320]/15'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200/80'
-                    }`}
-                >
-                  {labelMap[filter]}
-                </button>
-              );
-            })}
+          {/* Tags de Filtrado + Toggle de Vista */}
+          <div className="flex items-center gap-2">
+            <div className="flex flex-1 flex-wrap gap-2 overflow-x-auto pb-1 no-scrollbar">
+              {(['TODAS', 'HOY', 'SEMANA', 'MES'] as const).map((filter) => {
+                const labelMap = { TODAS: 'Todas', HOY: 'Hoy', SEMANA: 'Semana', MES: 'Mes' };
+                const isActive = activeFilter === filter;
+                return (
+                  <button
+                    key={filter}
+                    onClick={() => setActiveFilter(filter)}
+                    className={`rounded-full px-5 py-2 text-sm font-bold transition-all ${isActive
+                      ? 'bg-[#5C2320] text-white shadow-sm shadow-[#5C2320]/15'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200/80'
+                      }`}
+                  >
+                    {labelMap[filter]}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Switch de Vista */}
+            <div className="flex shrink-0 items-center gap-1 rounded-xl bg-slate-100 p-1">
+              <button
+                onClick={() => setViewMode('cards')}
+                title="Vista en tarjetas"
+                className={`flex items-center justify-center rounded-lg p-2 transition-all ${viewMode === 'cards'
+                    ? 'bg-white text-[#5C2320] shadow-sm'
+                    : 'text-slate-400 hover:text-slate-600'
+                  }`}
+              >
+                <LayoutGrid size={16} />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                title="Vista en lista"
+                className={`flex items-center justify-center rounded-lg p-2 transition-all ${viewMode === 'list'
+                    ? 'bg-white text-[#5C2320] shadow-sm'
+                    : 'text-slate-400 hover:text-slate-600'
+                  }`}
+              >
+                <List size={16} />
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Listado de Deudas en Formato Tarjeta */}
+        {/* Listado de Deudas */}
         {isLoading ? (
           <div className="flex h-60 items-center justify-center text-sm text-slate-400">
             Cargando deudas...
@@ -295,7 +325,8 @@ export default function DebtsPage() {
               {searchQuery ? 'No se encontraron clientes con deudas para esta búsqueda.' : 'No hay cuentas por cobrar pendientes.'}
             </p>
           </div>
-        ) : (
+        ) : viewMode === 'cards' ? (
+          /* ── VISTA TARJETAS ── */
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {filteredDebts.map((clientDebt) => {
               const outstandingUsd = clientDebt.total_usd;
@@ -377,6 +408,58 @@ export default function DebtsPage() {
                     </button>
                   </div>
                 </div>
+              );
+            })}
+          </div>
+        ) : (
+          /* ── VISTA LISTA ── */
+          <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+            {filteredDebts.map((clientDebt, idx) => {
+              const outstandingUsd = clientDebt.total_usd;
+              const outstandingBs = outstandingUsd * rate;
+              const isOverdue = checkIfOverdue(clientDebt.created_at);
+              const isLast = idx === filteredDebts.length - 1;
+
+              return (
+                <button
+                  key={clientDebt.id}
+                  onClick={() => setSelectedDetailSale(clientDebt)}
+                  className={`w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-slate-50 active:bg-slate-100 transition-colors ${!isLast ? 'border-b border-slate-100' : ''
+                    }`}
+                >
+                  {/* Avatar */}
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-rose-100 font-black text-[#5C2320] text-sm">
+                    {getInitials(clientDebt.client?.name || '')}
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-slate-800 truncate ml-1">
+                      {clientDebt.client?.name || 'Cliente desconocido'}
+                    </p>
+                    <span
+                      className={`inline-block mt-0.5 rounded-full px-1 py-0.5 text-[10px] font-extrabold uppercase tracking-wide ${isOverdue
+                          ? 'bg-rose-100 text-rose-600'
+                          : 'bg-amber-50 text-amber-600'
+                        }`}
+                    >
+                      {isOverdue ? 'Vencido' : 'Pendiente'}
+                    </span>
+                  </div>
+
+                  {/* Montos */}
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-black text-slate-800">
+                      {formatCurrencyUsd(outstandingUsd)}
+                    </p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {formatCurrencyBs(outstandingBs)}
+                    </p>
+                  </div>
+
+                  {/* Chevron */}
+                  <ChevronRight size={16} className="text-slate-300 shrink-0" />
+                </button>
               );
             })}
           </div>

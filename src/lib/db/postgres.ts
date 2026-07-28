@@ -219,34 +219,42 @@ const toNumber = (val: any): number => (val !== undefined && val !== null ? Numb
 
 export class PostgresAdapter implements DatabaseAdapter {
   // --- CLIENTES ---
-  async getClients(): Promise<Client[]> {
+  async getClients(page?: number, limit?: number): Promise<{ data: Client[]; total: number }> {
     const ds = await getDataSource();
     const repo = ds.getRepository(ClientEntity);
-    
-    // Obtenemos clientes con sales y sus payments
-    const clients = await repo.find({
+
+    const skip = page && limit ? (page - 1) * limit : undefined;
+    const take = limit;
+
+    // Obtenemos clientes paginados con sales y sus payments
+    const [clients, total] = await repo.findAndCount({
       relations: {
         sales: {
           payments: true,
         },
       },
       order: { name: 'ASC' },
+      skip,
+      take,
     });
 
-    return clients.map((c) => ({
-      id: c.id,
-      name: c.name,
-      phone: c.phone || null,
-      created_at: c.created_at.toISOString(),
-      sales: c.sales?.map((s) => ({
-        id: s.id,
-        total_usd: toNumber(s.total_usd),
-        status: s.status,
-        payments: s.payments?.map((p) => ({
-          amount_usd: toNumber(p.amount_usd),
+    return {
+      data: clients.map((c) => ({
+        id: c.id,
+        name: c.name,
+        phone: c.phone || null,
+        created_at: c.created_at.toISOString(),
+        sales: c.sales?.map((s) => ({
+          id: s.id,
+          total_usd: toNumber(s.total_usd),
+          status: s.status,
+          payments: s.payments?.map((p) => ({
+            amount_usd: toNumber(p.amount_usd),
+          })),
         })),
-      })),
-    })) as any[];
+      })) as any[],
+      total,
+    };
   }
 
   async getClientById(id: string): Promise<Client> {

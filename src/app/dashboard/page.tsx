@@ -176,15 +176,15 @@ export default function DashboardPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={activeStats.weeklyChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="day" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                  <XAxis dataKey="day" stroke="#d87c88" fontSize={11} tickLine={false} axisLine={false} />
+                  <YAxis stroke="#d87c88" fontSize={11} tickLine={false} axisLine={false} />
                   <Tooltip
                     contentStyle={{ background: '#0f172a', borderRadius: '12px', border: 'none' }}
                     labelStyle={{ color: '#f8fafc', fontWeight: 'bold' }}
-                    itemStyle={{ color: '#f472b6' }}
+                    itemStyle={{ color: '#d87c88' }}
                     formatter={(value) => [`$${value}`, 'Vendido']}
                   />
-                  <Bar dataKey="amount" fill="url(#colorUv)" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="amount" fill="#64241c" radius={[6, 6, 0, 0]} />
                   <defs>
                     <linearGradient id="colorUv" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#ec4899" stopOpacity={0.8}/>
