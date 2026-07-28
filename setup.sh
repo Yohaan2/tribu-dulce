@@ -17,12 +17,27 @@ if [ -d "$data_path/conf/live/$domains" ]; then
   fi
 fi
 
-# Descargar parámetros TLS recomendados si no existen
-if [ ! -e "$data_path/conf/options-ssl-nginx.conf" ] || [ ! -e "$data_path/conf/ssl-dhparams.pem" ]; then
-  echo "### Downloading recommended TLS parameters ..."
-  mkdir -p "$data_path/conf"
-  curl -s https://raw.githubusercontent.com/certbot/certbot/master/certbot-nginx/certbot_nginx/_internal/tls_configs/options-ssl-nginx.conf > "$data_path/conf/options-ssl-nginx.conf"
-  curl -s https://raw.githubusercontent.com/certbot/certbot/master/certbot/certbot/ssl-dhparams.pem > "$data_path/conf/ssl-dhparams.pem"
+# Preparar parámetros TLS recomendados y DH params
+mkdir -p "$data_path/conf"
+
+if [ ! -s "$data_path/conf/options-ssl-nginx.conf" ] || grep -q "404" "$data_path/conf/options-ssl-nginx.conf" 2>/dev/null; then
+  echo "### Creating recommended TLS options (options-ssl-nginx.conf) ..."
+  cat << 'EOF' > "$data_path/conf/options-ssl-nginx.conf"
+ssl_session_cache shared:le_nginx_SSL:1m;
+ssl_session_timeout 1440m;
+ssl_session_tickets off;
+
+ssl_protocols TLSv1.2 TLSv1.3;
+ssl_prefer_server_ciphers off;
+
+ssl_ciphers "ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384";
+EOF
+  echo
+fi
+
+if [ ! -s "$data_path/conf/ssl-dhparams.pem" ] || grep -q "404" "$data_path/conf/ssl-dhparams.pem" 2>/dev/null; then
+  echo "### Generating DH parameters (ssl-dhparams.pem) ..."
+  docker compose run --rm --entrypoint "openssl" certbot dhparam -out /etc/letsencrypt/ssl-dhparams.pem 2048
   echo
 fi
 
