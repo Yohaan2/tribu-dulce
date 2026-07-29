@@ -31,7 +31,11 @@ export class ClientsService {
   }
 
   static async getById(id: string): Promise<Client> {
-    return await db.getClientById(id);
+  return await db.getClientById(id);
+  }
+
+  static async getByName(name: string): Promise<Client> {
+    return await db.getClientByName(name);
   }
 
   static async create(input: CreateClientInput): Promise<Client> {

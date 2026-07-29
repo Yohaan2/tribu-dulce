@@ -48,6 +48,13 @@ async function getClientByID(id: string): Promise<Client> {
   return json.data;
 }
 
+async function getClientByName(name: string): Promise<Client> {
+  const res = await authFetch(`/api/clients?name=${encodeURIComponent(name)}`);
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error);
+  return json.data;
+}
+
 export function useClients(page: number = 1, limit: number = 10) {
   const queryClient = useQueryClient();
 
@@ -83,6 +90,10 @@ export function useClients(page: number = 1, limit: number = 10) {
     mutationFn: getClientByID,
   });
 
+  const getClientByNameMutation = useMutation({
+    mutationFn: getClientByName,
+  });
+
   return {
     clients: clientsQuery.data || [],
     isLoading: clientsQuery.isLoading,
@@ -95,5 +106,7 @@ export function useClients(page: number = 1, limit: number = 10) {
     isDeleting: deleteMutation.isPending,
     getClientById: getClientByIdMutation.mutateAsync,
     isGettingClientById: getClientByIdMutation.isPending,
+    getClientByName: getClientByNameMutation.mutateAsync,
+    isGettingClientByName: getClientByNameMutation.isPending,
   };
 }

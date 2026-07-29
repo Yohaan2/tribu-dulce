@@ -9,12 +9,13 @@ import { useExchangeRate } from '@/hooks/useExchangeRate';
 import { useSalesStore } from '@/stores/sales.store';
 import { useAuthStore } from '@/stores/auth.store';
 import { formatCurrencyUsd, formatCurrencyBs } from '@/lib/utils';
-import { ShoppingCart, User, Plus, Minus, Trash, Check, Loader2, Save } from 'lucide-react';
+import { ShoppingCart, User, Plus, Minus, Trash, Check, Loader2, Save, CalendarDays } from 'lucide-react';
 import { Client, SaleStatus } from '@/types';
 import SelectInput, { SelectOption } from '@/components/ui/select-input';
+import DateInput from '@/components/ui/date-input';
 
 export default function SalesPage() {
-  const { clients, getClientById } = useClients(1, 10);
+  const { clients, getClientByName } = useClients(1, 10);
   const { products, isLoading: productsLoading } = useProducts();
   const { createSale, isCreating } = useSales();
   const { exchangeRate } = useExchangeRate();
@@ -47,6 +48,7 @@ export default function SalesPage() {
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
   const [partialPayment, setPartialPayment] = useState<string>('');
+  const [saleDate, setSaleDate] = useState<Date>(new Date());
   const [isSearching, setIsSearching] = useState(false);
   const [searchedClient, setSearchedClient] = useState<Client | null>(null);
   const [clientNotFound, setClientNotFound] = useState(false);
@@ -104,6 +106,7 @@ export default function SalesPage() {
         total_bs: totalBs,
         status,
         created_by: currentUser?.id || null,
+        created_at: saleDate,
         partial_payment_usd: status === 'PARTIAL' ? parseFloat(partialPayment) : null,
       };
 
@@ -128,7 +131,7 @@ export default function SalesPage() {
     }
     setIsSearching(true);
     try {
-      const client = await getClientById(trimmed);
+      const client = await getClientByName(trimmed);
       setSearchedClient(client);
       setClientId(client.id);
       setClientNotFound(false);
@@ -163,6 +166,18 @@ export default function SalesPage() {
                 isSearching={isSearching}
                 placeholder="Seleccionar Cliente"
                 className="space-y-0!"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                <CalendarDays size={16} className="text-pink-500" />
+                <span>Fecha</span>
+              </h3>
+              <DateInput
+                value={saleDate}
+                onChange={(date) => setSaleDate(date)}
+                placeholder="Seleccionar fecha"
               />
             </div>
 

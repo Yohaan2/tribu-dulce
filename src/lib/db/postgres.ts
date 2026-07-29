@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { DataSource, Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
+import { DataSource, Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn, ILike } from 'typeorm';
 import { Client, Product, Sale, Payment, ExchangeRate, DashboardStats, SaleStatus, UserProfile } from '@/types';
 import { CreateClientInput, UpdateClientInput } from '@/schemas/client.schema';
 import { CreateProductInput, UpdateProductInput } from '@/schemas/product.schema';
@@ -270,6 +270,19 @@ export class PostgresAdapter implements DatabaseAdapter {
     };
   }
 
+  async getClientByName(name: string): Promise<Client> {
+    const ds = await getDataSource();
+    const repo = ds.getRepository(ClientEntity);
+    const client = await repo.findOne({ where: { name: ILike(`%${name}%`) } });
+    if (!client) throw new Error('Cliente no encontrado');
+    return {
+      id: client.id,
+      name: client.name,
+      phone: client.phone || null,
+      created_at: client.created_at.toISOString(),
+    };
+  }
+
   async createClient(input: CreateClientInput): Promise<Client> {
     const ds = await getDataSource();
     const repo = ds.getRepository(ClientEntity);
@@ -469,6 +482,7 @@ export class PostgresAdapter implements DatabaseAdapter {
         total_bs: input.total_bs,
         status: input.status,
         created_by: input.created_by || undefined,
+        created_at: input.created_at || new Date(),
       });
       const savedSale = await saleRepo.save(sale);
       const saleId = savedSale.id;

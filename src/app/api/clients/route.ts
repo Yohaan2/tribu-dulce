@@ -5,6 +5,13 @@ import { CreateClientSchema } from '@/schemas/client.schema';
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
+    const name = searchParams.get('name');
+
+    if (name) {
+      const client = await ClientsService.getByName(name);
+      return NextResponse.json({ success: true, data: client });
+    }
+
     const parsedPage = parseInt(searchParams.get('page') || '1', 10);
     const parsedLimit = parseInt(searchParams.get('limit') || '10', 10);
     const page = Number.isNaN(parsedPage) ? 1 : Math.max(1, parsedPage);

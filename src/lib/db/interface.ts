@@ -8,6 +8,7 @@ export interface DatabaseAdapter {
   // --- CLIENTES ---
   getClients(page?: number, limit?: number): Promise<{ data: Client[]; total: number }>;
   getClientById(id: string): Promise<Client>;
+  getClientByName(name: string): Promise<Client>;
   createClient(input: CreateClientInput): Promise<Client>;
   updateClient(id: string, input: UpdateClientInput): Promise<Client>;
   deleteClient(id: string): Promise<void>;

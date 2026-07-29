@@ -12,6 +12,7 @@ export const CreateSaleSchema = z.object({
   total_usd: z.number().min(0, { message: 'El total en dólares debe ser positivo.' }),
   total_bs: z.number().min(0, { message: 'El total en bolívares debe ser positivo.' }),
   status: z.enum(['PAID', 'PENDING', 'PARTIAL'], { message: 'Estado de venta no válido.' }),
+  created_at: z.coerce.date().optional(),
   created_by: z.string().uuid().optional().nullable(),
   partial_payment_usd: z.number().min(0, { message: 'El abono parcial debe ser positivo.' }).optional().nullable(),
 });

@@ -55,6 +55,18 @@ export class SupabaseAdapter implements DatabaseAdapter {
     return data;
   }
 
+  async getClientByName(name: string): Promise<Client> {
+    const supabase = await this.getClient();
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('name', name)
+      .single();
+
+    if (error) throw new Error(`Cliente no encontrado: ${error.message}`);
+    return data;
+  }
+
   async createClient(input: CreateClientInput): Promise<Client> {
     const supabase = await this.getClient();
     const { data, error } = await supabase
