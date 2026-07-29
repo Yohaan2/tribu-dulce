@@ -22,6 +22,8 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     const updatedProduct = await ProductsService.update(id, validation.data);
     return NextResponse.json({ success: true, data: updatedProduct });
   } catch (error: any) {
+    console.error('[src/app/api/products/[id]/route.ts] status: 500, error:', error);
+
     return NextResponse.json(
       { success: false, error: error.message || 'Error al actualizar producto' },
       { status: 500 }
@@ -35,6 +37,8 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     await ProductsService.delete(id);
     return NextResponse.json({ success: true, message: 'Producto eliminado correctamente' });
   } catch (error: any) {
+    console.error('[src/app/api/products/[id]/route.ts] status: 500, error:', error);
+
     return NextResponse.json(
       { success: false, error: error.message || 'Error al eliminar producto' },
       { status: 500 }

@@ -27,6 +27,8 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     const newPayment = await PaymentsService.createPayment(validation.data);
     return NextResponse.json({ success: true, data: newPayment });
   } catch (error: any) {
+    console.error('[src/app/api/debts/[id]/pay/route.ts] status: 500, error:', error);
+
     return NextResponse.json(
       { success: false, error: error.message || 'Error al registrar pago' },
       { status: 500 }

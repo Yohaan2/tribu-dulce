@@ -6,6 +6,8 @@ export async function GET() {
     const latestRate = await ExchangeRateService.getLatest();
     return NextResponse.json({ success: true, data: latestRate });
   } catch (error: any) {
+    console.error('[src/app/api/exchange-rate/route.ts] status: 500, error:', error);
+
     return NextResponse.json(
       { success: false, error: error.message || 'Error al obtener tasa de cambio' },
       { status: 500 }
@@ -28,6 +30,8 @@ export async function POST(request: Request) {
     const newRate = await ExchangeRateService.create(Number(rate), source || 'Manual');
     return NextResponse.json({ success: true, data: newRate }, { status: 201 });
   } catch (error: any) {
+    console.error('[src/app/api/exchange-rate/route.ts] status: 500, error:', error);
+
     return NextResponse.json(
       { success: false, error: error.message || 'Error al registrar tasa de cambio' },
       { status: 500 }

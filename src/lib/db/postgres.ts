@@ -717,7 +717,7 @@ export class PostgresAdapter implements DatabaseAdapter {
     const daysOfWeek = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
     const now = new Date();
     const weeklyChartData = Array.from({ length: 7 }).map((_, i) => {
-      const d = new Date();
+      const d = new Date(now);
       d.setDate(now.getDate() - (6 - i));
       const dayName = daysOfWeek[d.getDay()];
       const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();

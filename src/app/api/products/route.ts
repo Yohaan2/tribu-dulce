@@ -7,6 +7,8 @@ export async function GET() {
     const products = await ProductsService.getAll();
     return NextResponse.json({ success: true, data: products });
   } catch (error: any) {
+    console.error('[src/app/api/products/route.ts] status: 500, error:', error);
+
     return NextResponse.json(
       { success: false, error: error.message || 'Error al obtener productos' },
       { status: 500 }
@@ -29,6 +31,8 @@ export async function POST(request: Request) {
     const newProduct = await ProductsService.create(validation.data);
     return NextResponse.json({ success: true, data: newProduct }, { status: 201 });
   } catch (error: any) {
+    console.error('[src/app/api/products/route.ts] status: 500, error:', error);
+
     return NextResponse.json(
       { success: false, error: error.message || 'Error al crear producto' },
       { status: 500 }

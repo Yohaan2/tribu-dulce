@@ -19,6 +19,8 @@ export async function GET(request: Request) {
       pagination: { page, limit, total, totalPages },
     });
   } catch (error: any) {
+    console.error('[src/app/api/clients/route.ts] status: 500, error:', error);
+
     return NextResponse.json(
       { success: false, error: error.message || 'Error al obtener clientes' },
       { status: 500 }
@@ -42,6 +44,8 @@ export async function POST(request: Request) {
     const newClient = await ClientsService.create(validation.data);
     return NextResponse.json({ success: true, data: newClient }, { status: 201 });
   } catch (error: any) {
+    console.error('[src/app/api/clients/route.ts] status: 500, error:', error);
+
     return NextResponse.json(
       { success: false, error: error.message || 'Error al crear cliente' },
       { status: 500 }

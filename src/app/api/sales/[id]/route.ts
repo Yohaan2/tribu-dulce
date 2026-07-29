@@ -11,6 +11,8 @@ export async function GET(request: Request, { params }: RouteParams) {
     const sale = await SalesService.getById(id);
     return NextResponse.json({ success: true, data: sale });
   } catch (error: any) {
+    console.error('[src/app/api/sales/[id]/route.ts] status: 404, error:', error);
+
     return NextResponse.json(
       { success: false, error: error.message || 'Venta no encontrada' },
       { status: 404 }
@@ -31,6 +33,8 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     const updatedSale = await SalesService.updateStatus(id, status);
     return NextResponse.json({ success: true, data: updatedSale });
   } catch (error: any) {
+    console.error('[src/app/api/sales/[id]/route.ts] status: 500, error:', error);
+
     return NextResponse.json(
       { success: false, error: error.message || 'Error al actualizar estado de venta' },
       { status: 500 }

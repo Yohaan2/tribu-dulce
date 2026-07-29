@@ -74,7 +74,7 @@ export async function POST(request: Request) {
     }, { status: 201 });
 
   } catch (error: any) {
-    console.error('Error en register:', error);
+    console.error('[src/app/api/auth/register/route.ts] status: 500, error:', error);
     return NextResponse.json(
       { success: false, error: error.message || 'Error al registrar usuario' },
       { status: 500 }

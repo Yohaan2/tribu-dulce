@@ -136,7 +136,7 @@ export async function POST(request: Request) {
     }, { status: 200 });
 
   } catch (error: any) {
-    console.error('Error en login:', error);
+    console.error('[src/app/api/auth/login/route.ts] status: 500, error:', error);
     return NextResponse.json(
       { success: false, error: error.message || 'Error al iniciar sesión' },
       { status: 500 }

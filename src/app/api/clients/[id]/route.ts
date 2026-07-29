@@ -12,6 +12,8 @@ export async function GET(request: Request, { params }: RouteParams) {
     const client = await ClientsService.getById(id);
     return NextResponse.json({ success: true, data: client });
   } catch (error: any) {
+    console.error('[src/app/api/clients/[id]/route.ts] status: 404, error:', error);
+
     return NextResponse.json(
       { success: false, error: error.message || 'Cliente no encontrado' },
       { status: 404 }
@@ -35,6 +37,8 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     const updatedClient = await ClientsService.update(id, validation.data);
     return NextResponse.json({ success: true, data: updatedClient });
   } catch (error: any) {
+    console.error('[src/app/api/clients/[id]/route.ts] status: 500, error:', error);
+
     return NextResponse.json(
       { success: false, error: error.message || 'Error al actualizar cliente' },
       { status: 500 }
@@ -48,6 +52,8 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     await ClientsService.delete(id);
     return NextResponse.json({ success: true, message: 'Cliente eliminado correctamente' });
   } catch (error: any) {
+    console.error('[src/app/api/clients/[id]/route.ts] status: 500, error:', error);
+
     return NextResponse.json(
       { success: false, error: error.message || 'Error al eliminar cliente' },
       { status: 500 }

@@ -40,7 +40,7 @@ export const GET = withAuth(async (req: AuthenticatedRequest) => {
       },
     });
   } catch (error: any) {
-    console.error('Error en /api/auth/me:', error);
+    console.error('[src/app/api/auth/me/route.ts] status: 500, error:', error);
     return NextResponse.json(
       { success: false, error: error.message || 'Error al obtener usuario actual' },
       { status: 500 }

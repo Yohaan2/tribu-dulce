@@ -7,6 +7,8 @@ export async function GET() {
     const sales = await SalesService.getAll();
     return NextResponse.json({ success: true, data: sales });
   } catch (error: any) {
+    console.error('[src/app/api/sales/route.ts] status: 500, error:', error);
+
     return NextResponse.json(
       { success: false, error: error.message || 'Error al obtener ventas' },
       { status: 500 }
@@ -29,6 +31,8 @@ export async function POST(request: Request) {
     const newSale = await SalesService.create(validation.data);
     return NextResponse.json({ success: true, data: newSale }, { status: 201 });
   } catch (error: any) {
+    console.error('[src/app/api/sales/route.ts] status: 500, error:', error);
+
     return NextResponse.json(
       { success: false, error: error.message || 'Error al registrar venta' },
       { status: 500 }

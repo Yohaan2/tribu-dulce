@@ -46,6 +46,7 @@ services:
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
       JWT_SECRET: ${JWT_SECRET}
       NODE_ENV: production
+      TZ: America/Caracas
     depends_on:
       postgres:
         condition: service_healthy

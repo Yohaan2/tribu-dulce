@@ -27,6 +27,8 @@ export async function POST(request: Request, { params }: RouteParams) {
     await PaymentsService.createClientPayment(validation.data);
     return NextResponse.json({ success: true, message: 'Pago registrado con éxito' });
   } catch (error: any) {
+    console.error('[src/app/api/clients/[id]/pay/route.ts] status: 500, error:', error);
+
     return NextResponse.json(
       { success: false, error: error.message || 'Error al registrar pago' },
       { status: 500 }
