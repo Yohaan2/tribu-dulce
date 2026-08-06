@@ -21,6 +21,7 @@ export function Breadcrumbs() {
     calendar: 'Calendario',
     settings: 'Configuración',
     login: 'Login',
+    audit: 'Auditoría',
   };
 
   return (

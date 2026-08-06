@@ -1,5 +1,5 @@
 import { createServerClient } from '@/lib/supabase/server';
-import { Client, Product, Sale, Payment, ExchangeRate, DashboardStats, SaleStatus } from '@/types';
+import { Client, Product, Sale, Payment, ExchangeRate, DashboardStats, SaleStatus, AuditLog, CreateAuditLogInput } from '@/types';
 import { CreateClientInput, UpdateClientInput } from '@/schemas/client.schema';
 import { CreateProductInput, UpdateProductInput } from '@/schemas/product.schema';
 import { CreateSaleInput } from '@/schemas/sale.schema';
@@ -497,5 +497,43 @@ export class SupabaseAdapter implements DatabaseAdapter {
       topClients,
       weeklyChartData,
     };
+  }
+
+  // --- AUDITORIA ---
+  async getAuditLogs(limit: number = 100): Promise<AuditLog[]> {
+    const supabase = await this.getClient();
+    const { data, error } = await supabase
+      .from('audit_logs_view')
+      .select('*')
+      .limit(limit);
+
+    if (error) throw new Error(error.message);
+    return (data || []) as AuditLog[];
+  }
+
+  async createAuditLog(input: CreateAuditLogInput): Promise<AuditLog> {
+    const supabase = await this.getClient();
+    const { data, error } = await supabase
+      .from('audit_logs')
+      .insert({
+        user_id: input.user_id,
+        action: input.action,
+        entity_type: input.entity_type || null,
+        entity_id: input.entity_id || null,
+        details: input.details || null,
+      })
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+
+    const { data: viewData, error: viewError } = await supabase
+      .from('audit_logs_view')
+      .select('*')
+      .eq('id', data.id)
+      .single();
+
+    if (viewError) throw new Error(viewError.message);
+    return viewData as AuditLog;
   }
 }

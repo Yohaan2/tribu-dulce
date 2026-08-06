@@ -6,7 +6,7 @@ export interface TokenPayload {
   id: string;
   email: string;
   name: string;
-  role: 'ADMIN' | 'EMPLOYEE';
+  role: 'ADMIN' | 'EMPLOYEE' | 'SUPERADMIN';
 }
 
 export function generateToken(user: TokenPayload): string {

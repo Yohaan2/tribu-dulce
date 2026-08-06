@@ -166,3 +166,44 @@ CREATE POLICY "Permitir inserción de tasa de cambio a usuarios autenticados"
 
 -- Indexar fecha de creación para traer rápidamente la última tasa registrada
 CREATE INDEX IF NOT EXISTS idx_exchange_rates_created_at ON public.exchange_rates(created_at DESC);
+
+-- =========================================================================
+-- 8. TABLA: audit_logs
+-- =========================================================================
+CREATE TABLE IF NOT EXISTS public.audit_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    action TEXT NOT NULL,
+    entity_type TEXT,
+    entity_id UUID,
+    details JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Permitir todo a usuarios autenticados en audit_logs"
+    ON public.audit_logs FOR ALL
+    USING (auth.role() = 'authenticated');
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON public.audit_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON public.audit_logs(created_at DESC);
+
+-- =========================================================================
+-- 9. VISTA: audit_logs_view
+-- Registros con nombre de usuario y fecha/hora legible para la UI
+-- =========================================================================
+CREATE OR REPLACE VIEW public.audit_logs_view AS
+SELECT
+    al.id,
+    al.user_id,
+    p.name AS user_name,
+    al.action,
+    al.entity_type,
+    al.entity_id,
+    al.details,
+    al.created_at,
+    to_char(al.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/Caracas', 'DD/MM/YYYY HH24:MI:SS') AS formatted_datetime
+FROM public.audit_logs al
+JOIN public.profiles p ON p.id = al.user_id
+ORDER BY al.created_at DESC;

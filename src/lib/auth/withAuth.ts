@@ -41,7 +41,7 @@ export function withAuth(handler: AuthenticatedHandler) {
   };
 }
 
-export function withRole(role: 'ADMIN' | 'EMPLOYEE') {
+export function withRole(role: 'ADMIN' | 'EMPLOYEE' | 'SUPERADMIN') {
   return (handler: AuthenticatedHandler): AuthenticatedHandler => {
     return async (req: AuthenticatedRequest, context?: any) => {
       if (!req.user) {

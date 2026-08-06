@@ -15,6 +15,7 @@ import {
   ChevronRight,
   LogOut,
   History,
+  ClipboardClock
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
@@ -45,6 +46,7 @@ export function Sidebar({ className }: SidebarProps) {
     { name: 'Historial', href: '/sales-history', icon: History },
     { name: 'Deudas', href: '/debts', icon: CreditCard },
     { name: 'Calendario', href: '/calendar', icon: Calendar },
+    ...(user?.role === 'SUPERADMIN' ? [{ name: 'Auditoría', href: '/audit', icon: ClipboardClock }] : []),
     { name: 'Configuración', href: '/settings', icon: Settings },
   ];
 

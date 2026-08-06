@@ -1,4 +1,4 @@
-export type UserRole = 'ADMIN' | 'EMPLOYEE';
+export type UserRole = 'ADMIN' | 'EMPLOYEE' | 'SUPERADMIN';
 
 export interface UserProfile {
   id: string;
@@ -65,6 +65,26 @@ export interface ExchangeRate {
   rate: number;
   source: string;
   created_at: string;
+}
+
+export interface AuditLog {
+  id: string;
+  user_id: string;
+  user_name: string;
+  action: string;
+  entity_type: string | null;
+  entity_id: string | null;
+  details: Record<string, any> | null;
+  created_at: string;
+  formatted_datetime: string;
+}
+
+export interface CreateAuditLogInput {
+  user_id: string;
+  action: string;
+  entity_type?: string;
+  entity_id?: string;
+  details?: Record<string, any>;
 }
 
 // Interfaz para el Dashboard

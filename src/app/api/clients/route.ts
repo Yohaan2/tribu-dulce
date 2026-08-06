@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { ClientsService } from '@/services/clients.service';
+import { AuditService } from '@/services/audit.service';
 import { CreateClientSchema } from '@/schemas/client.schema';
+import { AuthenticatedRequest, withAuth } from '@/lib/auth/withAuth';
 
 export async function GET(request: Request) {
   try {
@@ -35,7 +37,7 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export const POST = withAuth(async (request: AuthenticatedRequest) => {
   try {
     const body = await request.json();
     
@@ -49,6 +51,18 @@ export async function POST(request: Request) {
     }
 
     const newClient = await ClientsService.create(validation.data);
+
+    // Registrar la acción en auditoría
+    if (request.user) {
+      await AuditService.record({
+        user_id: request.user.id,
+        action: 'CLIENT_CREATED',
+        entity_type: 'client',
+        entity_id: newClient.id,
+        details: { name: newClient.name, phone: newClient.phone },
+      });
+    }
+
     return NextResponse.json({ success: true, data: newClient }, { status: 201 });
   } catch (error: any) {
     console.error('[src/app/api/clients/route.ts] status: 500, error:', error);
@@ -58,4 +72,5 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+});
+

@@ -1,4 +1,4 @@
-import { Client, Product, Sale, Payment, ExchangeRate, DashboardStats, SaleStatus } from '@/types';
+import { Client, Product, Sale, Payment, ExchangeRate, DashboardStats, SaleStatus, AuditLog, CreateAuditLogInput } from '@/types';
 import { CreateClientInput, UpdateClientInput } from '@/schemas/client.schema';
 import { CreateProductInput, UpdateProductInput } from '@/schemas/product.schema';
 import { CreateSaleInput } from '@/schemas/sale.schema';
@@ -38,4 +38,8 @@ export interface DatabaseAdapter {
 
   // --- DASHBOARD ---
   getDashboardStats(todayStart: string, weekStart: string, monthStart: string): Promise<DashboardStats>;
+
+  // --- AUDITORIA ---
+  getAuditLogs(limit?: number): Promise<AuditLog[]>;
+  createAuditLog(input: CreateAuditLogInput): Promise<AuditLog>;
 }

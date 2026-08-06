@@ -76,11 +76,20 @@ export default function DebtsPage() {
       .replace(/de /g, ''); // Limpiar conectores 'de'
   };
 
-  // Determinar si una deuda está vencida (más de 7 días de creada)
-  const checkIfOverdue = (createdAt: string) => {
-    const diffTime = Math.abs(new Date().getTime() - new Date(createdAt).getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays > 7;
+  // Determinar si una deuda está vencida (solo en quincenas: 15, 30 o el último día de febrero)
+  const checkIfOverdue = () => {
+    const today = new Date();
+    const day = today.getDate();
+    const month = today.getMonth();
+
+    if (day === 15 || day === 30) return true;
+
+    if (month === 1) {
+      const lastDayOfFeb = new Date(today.getFullYear(), 2, 0).getDate();
+      if (day === lastDayOfFeb) return true;
+    }
+
+    return false;
   };
 
   const formatPhone = (phone: string) => {
@@ -332,7 +341,7 @@ export default function DebtsPage() {
               const outstandingUsd = clientDebt.total_usd;
               const outstandingBs = outstandingUsd * rate;
               const productCount = clientDebt.productCount;
-              const isOverdue = checkIfOverdue(clientDebt.created_at);
+              const isOverdue = checkIfOverdue();
 
               return (
                 <div key={clientDebt.id} className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm space-y-4 hover:shadow-md transition-shadow">
@@ -417,7 +426,7 @@ export default function DebtsPage() {
             {filteredDebts.map((clientDebt, idx) => {
               const outstandingUsd = clientDebt.total_usd;
               const outstandingBs = outstandingUsd * rate;
-              const isOverdue = checkIfOverdue(clientDebt.created_at);
+              const isOverdue = checkIfOverdue();
               const isLast = idx === filteredDebts.length - 1;
 
               return (

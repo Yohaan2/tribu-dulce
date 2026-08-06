@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { verifyToken } from './lib/auth/jwt';
 
 function isTokenValid(token: string): boolean {
   try {
@@ -34,7 +35,7 @@ export async function middleware(request: NextRequest) {
   }
 
   const provider = process.env.DATABASE_PROVIDER?.toLowerCase() || 'postgres';
-  const protectedRoutes = ['/dashboard', '/clients', '/products', '/sales', '/sales-history', '/debts', '/calendar', '/settings'];
+  const protectedRoutes = ['/dashboard', '/clients', '/products', '/sales', '/sales-history', '/debts', '/calendar', '/settings', '/audit'];
   const isProtectedRoute = protectedRoutes.some((route) => nextPath === route || nextPath.startsWith(`${route}/`));
 
   // =========================================================================
@@ -47,6 +48,14 @@ export async function middleware(request: NextRequest) {
 
     if (isProtectedRoute && !isAuthenticated) {
       return NextResponse.redirect(new URL('/login', request.url));
+    }
+
+    // Proteger /audit solo para SUPERADMIN
+    if (nextPath === '/audit' || nextPath.startsWith('/audit/')) {
+      const payload = token ? verifyToken(token) : null;
+      if (!payload || (payload.role !== 'SUPERADMIN' && payload.role !== 'ADMIN')) {
+        return NextResponse.redirect(new URL('/dashboard', request.url));
+      }
     }
 
     if (isAuthenticated && (nextPath === '/login' || nextPath === '/')) {

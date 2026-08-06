@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { DataSource, Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn, ILike } from 'typeorm';
-import { Client, Product, Sale, Payment, ExchangeRate, DashboardStats, SaleStatus, UserProfile } from '@/types';
+import { Client, Product, Sale, Payment, ExchangeRate, DashboardStats, SaleStatus, UserProfile, AuditLog, CreateAuditLogInput } from '@/types';
 import { CreateClientInput, UpdateClientInput } from '@/schemas/client.schema';
 import { CreateProductInput, UpdateProductInput } from '@/schemas/product.schema';
 import { CreateSaleInput } from '@/schemas/sale.schema';
@@ -169,6 +169,34 @@ export class ExchangeRateEntity {
   created_at!: Date;
 }
 
+@Entity({ name: 'audit_logs' })
+export class AuditLogEntity {
+  @PrimaryGeneratedColumn('uuid')
+  id!: string;
+
+  @Column({ name: 'user_id' })
+  user_id!: string;
+
+  @ManyToOne(() => ProfileEntity)
+  @JoinColumn({ name: 'user_id' })
+  user!: ProfileEntity;
+
+  @Column()
+  action!: string;
+
+  @Column({ name: 'entity_type', nullable: true })
+  entity_type!: string;
+
+  @Column({ name: 'entity_id', nullable: true })
+  entity_id!: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  details!: Record<string, any>;
+
+  @Column({ type: 'timestamp with time zone', default: () => 'CURRENT_TIMESTAMP' })
+  created_at!: Date;
+}
+
 // =========================================================================
 // DATA SOURCE MANAGER
 // =========================================================================
@@ -198,6 +226,7 @@ export async function getDataSource(): Promise<DataSource> {
       SaleItemEntity,
       PaymentEntity,
       ExchangeRateEntity,
+      AuditLogEntity,
     ],
     synchronize: false,
     logging: false,
@@ -758,6 +787,74 @@ export class PostgresAdapter implements DatabaseAdapter {
       pendingAmount,
       topClients,
       weeklyChartData,
+    };
+  }
+
+  // --- AUDITORIA ---
+  async getAuditLogs(limit: number = 100): Promise<AuditLog[]> {
+    const ds = await getDataSource();
+    const repo = ds.getRepository(AuditLogEntity);
+    const logs = await repo.find({
+      relations: { user: true },
+      order: { created_at: 'DESC' },
+      take: limit,
+    });
+
+    return logs.map((log) => ({
+      id: log.id,
+      user_id: log.user_id,
+      user_name: log.user?.name || 'Usuario desconocido',
+      action: log.action,
+      entity_type: log.entity_type || null,
+      entity_id: log.entity_id || null,
+      details: log.details || null,
+      created_at: log.created_at.toISOString(),
+      formatted_datetime: log.created_at.toLocaleString('es-VE', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      }),
+    }));
+  }
+
+  async createAuditLog(input: CreateAuditLogInput): Promise<AuditLog> {
+    const ds = await getDataSource();
+    const repo = ds.getRepository(AuditLogEntity);
+    const log = repo.create({
+      user_id: input.user_id,
+      action: input.action,
+      entity_type: input.entity_type,
+      entity_id: input.entity_id,
+      details: input.details,
+    });
+    const saved = await repo.save(log);
+    const withUser = await repo.findOne({
+      where: { id: saved.id },
+      relations: { user: true },
+    });
+    const user = withUser?.user;
+    return {
+      id: saved.id,
+      user_id: saved.user_id,
+      user_name: user?.name || 'Usuario desconocido',
+      action: saved.action,
+      entity_type: saved.entity_type || null,
+      entity_id: saved.entity_id || null,
+      details: saved.details || null,
+      created_at: saved.created_at.toISOString(),
+      formatted_datetime: saved.created_at.toLocaleString('es-VE', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      }),
     };
   }
 }
