@@ -570,13 +570,57 @@ export class PostgresAdapter implements DatabaseAdapter {
   }
 
   async updateSaleStatus(id: string, status: SaleStatus): Promise<Sale> {
+    return this.updateSale(id, { status });
+  }
+
+  async updateSale(
+    id: string,
+    input: {
+      status?: SaleStatus;
+      items?: Array<{ product_id: string; quantity: number; unit_price: number }>;
+    }
+  ): Promise<Sale> {
     const ds = await getDataSource();
-    const repo = ds.getRepository(SaleEntity);
-    const sale = await repo.findOne({ where: { id } });
-    if (!sale) throw new Error('Venta no encontrada');
-    sale.status = status;
-    await repo.save(sale);
-    return this.getSaleById(id);
+    return await ds.transaction(async (manager) => {
+      const saleRepo = manager.getRepository(SaleEntity);
+      const sale = await saleRepo.findOne({ where: { id } });
+      if (!sale) throw new Error('Venta no encontrada');
+
+      if (input.status) {
+        sale.status = input.status;
+      }
+
+      if (input.items) {
+        const itemRepo = manager.getRepository(SaleItemEntity);
+        await itemRepo.delete({ sale_id: id });
+
+        const total_usd = input.items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
+        const latestRate = await this.getLatestExchangeRate();
+        const currentTotalUsd = toNumber(sale.total_usd);
+        const currentTotalBs = toNumber(sale.total_bs);
+        const rate = latestRate?.rate || (currentTotalUsd > 0 ? currentTotalBs / currentTotalUsd : 0);
+        const total_bs = Math.round(total_usd * rate * 100) / 100;
+
+        sale.total_usd = total_usd;
+        sale.total_bs = total_bs;
+
+        if (input.items.length > 0) {
+          const newItems = input.items.map((item) =>
+            itemRepo.create({
+              sale_id: id,
+              product_id: item.product_id,
+              quantity: item.quantity,
+              unit_price: item.unit_price,
+              subtotal: item.quantity * item.unit_price,
+            })
+          );
+          await itemRepo.save(newItems);
+        }
+      }
+
+      await saleRepo.save(sale);
+      return this.getSaleById(id);
+    });
   }
 
   async getDebts(): Promise<Sale[]> {

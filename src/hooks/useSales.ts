@@ -21,11 +21,19 @@ async function createSale(input: CreateSaleInput): Promise<Sale> {
   return json.data;
 }
 
-async function updateSaleStatus({ id, status }: { id: string; status: 'PAID' | 'PENDING' | 'PARTIAL' }): Promise<Sale> {
+async function updateSale({
+  id,
+  status,
+  items,
+}: {
+  id: string;
+  status?: 'PAID' | 'PENDING' | 'PARTIAL';
+  items?: Array<{ product_id: string; quantity: number; unit_price: number }>;
+}): Promise<Sale> {
   const res = await authFetch(`/api/sales/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status }),
+    body: JSON.stringify({ status, items }),
   });
   const json = await res.json();
   if (!json.success) throw new Error(json.error);
@@ -49,8 +57,8 @@ export function useSales() {
     },
   });
 
-  const updateStatusMutation = useMutation({
-    mutationFn: updateSaleStatus,
+  const updateSaleMutation = useMutation({
+    mutationFn: updateSale,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sales'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
@@ -64,7 +72,9 @@ export function useSales() {
     error: salesQuery.error,
     createSale: createMutation.mutateAsync,
     isCreating: createMutation.isPending,
-    updateSaleStatus: updateStatusMutation.mutateAsync,
-    isUpdatingStatus: updateStatusMutation.isPending,
+    updateSaleStatus: updateSaleMutation.mutateAsync,
+    isUpdatingStatus: updateSaleMutation.isPending,
+    updateSale: updateSaleMutation.mutateAsync,
+    isUpdatingSale: updateSaleMutation.isPending,
   };
 }

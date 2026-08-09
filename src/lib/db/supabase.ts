@@ -275,13 +275,68 @@ export class SupabaseAdapter implements DatabaseAdapter {
   }
 
   async updateSaleStatus(id: string, status: SaleStatus): Promise<Sale> {
-    const supabase = await this.getClient();
-    const { error } = await supabase
-      .from('sales')
-      .update({ status })
-      .eq('id', id);
+    return this.updateSale(id, { status });
+  }
 
-    if (error) throw new Error(error.message);
+  async updateSale(
+    id: string,
+    input: {
+      status?: SaleStatus;
+      items?: Array<{ product_id: string; quantity: number; unit_price: number }>;
+    }
+  ): Promise<Sale> {
+    const supabase = await this.getClient();
+    const existingSale = await this.getSaleById(id);
+    if (!existingSale) throw new Error('Venta no encontrada');
+
+    const updateFields: any = {};
+
+    if (input.status) {
+      updateFields.status = input.status;
+    }
+
+    if (input.items) {
+      const { error: deleteError } = await supabase
+        .from('sale_items')
+        .delete()
+        .eq('sale_id', id);
+
+      if (deleteError) throw new Error(deleteError.message);
+
+      const total_usd = input.items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
+      const latestRate = await this.getLatestExchangeRate();
+      const rate = latestRate?.rate || (existingSale.total_usd > 0 ? existingSale.total_bs / existingSale.total_usd : 0);
+      const total_bs = Math.round(total_usd * rate * 100) / 100;
+
+      updateFields.total_usd = total_usd;
+      updateFields.total_bs = total_bs;
+
+      if (input.items.length > 0) {
+        const itemsToInsert = input.items.map((item) => ({
+          sale_id: id,
+          product_id: item.product_id,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          subtotal: item.quantity * item.unit_price,
+        }));
+
+        const { error: itemsError } = await supabase
+          .from('sale_items')
+          .insert(itemsToInsert);
+
+        if (itemsError) throw new Error(`Error actualizando items: ${itemsError.message}`);
+      }
+    }
+
+    if (Object.keys(updateFields).length > 0) {
+      const { error: updateError } = await supabase
+        .from('sales')
+        .update(updateFields)
+        .eq('id', id);
+
+      if (updateError) throw new Error(updateError.message);
+    }
+
     return this.getSaleById(id);
   }
 

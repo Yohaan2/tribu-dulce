@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { Sale } from '@/types';
+import { Sale, SaleStatus } from '@/types';
 import { CreateSaleInput } from '@/schemas/sale.schema';
 
 export class SalesService {
@@ -17,5 +17,15 @@ export class SalesService {
 
   static async updateStatus(id: string, status: 'PAID' | 'PENDING' | 'PARTIAL'): Promise<Sale> {
     return await db.updateSaleStatus(id, status);
+  }
+
+  static async updateSale(
+    id: string,
+    input: {
+      status?: SaleStatus;
+      items?: Array<{ product_id: string; quantity: number; unit_price: number }>;
+    }
+  ): Promise<Sale> {
+    return await db.updateSale(id, input);
   }
 }

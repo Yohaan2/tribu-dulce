@@ -3,10 +3,14 @@
 import React, { useState, useMemo } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useSales } from '@/hooks/useSales';
+import { useProducts } from '@/hooks/useProducts';
+import { useExchangeRate } from '@/hooks/useExchangeRate';
 import { formatCurrencyUsd, formatCurrencyBs } from '@/lib/utils';
 import { 
   Search, 
   Plus, 
+  Minus,
+  Trash2,
   SlidersHorizontal, 
   Eye, 
   Pencil, 
@@ -24,18 +28,32 @@ import { Sale, SaleStatus } from '@/types';
 
 type FilterType = 'Todas' | 'Pendientes' | 'Pagadas' | 'Este Mes';
 
+interface EditableItem {
+  product_id: string;
+  product_name: string;
+  quantity: number;
+  unit_price: number;
+}
+
 export default function SalesHistoryPage() {
   const router = useRouter();
-  const { sales, isLoading, updateSaleStatus, isUpdatingStatus } = useSales();
+  const { sales, isLoading, updateSale, isUpdatingSale } = useSales();
+  const { products } = useProducts();
+  const { exchangeRate } = useExchangeRate();
+
+  const rate = exchangeRate ? Number(exchangeRate.rate) : 40.0;
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('Todas');
   
   // State para visualización de detalles de venta
   const [viewingSale, setViewingSale] = useState<Sale | null>(null);
   
-  // State para edición de estado de venta
+  // State para edición de venta
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [newStatus, setNewStatus] = useState<SaleStatus>('PAID');
+  const [editingItems, setEditingItems] = useState<EditableItem[]>([]);
+  const [selectedProductId, setSelectedProductId] = useState<string>('');
 
   // Filtrado y agrupado de las ventas
   const filteredSales = useMemo(() => {
@@ -141,19 +159,87 @@ export default function SalesHistoryPage() {
     }
   };
 
-  const handleUpdateStatus = async () => {
-    if (!editingSale) return;
-    try {
-      await updateSaleStatus({ id: editingSale.id, status: newStatus });
-      setEditingSale(null);
-    } catch (error: any) {
-      alert(`Error al actualizar estado: ${error.message}`);
-    }
-  };
-
   const openEditModal = (sale: Sale) => {
     setEditingSale(sale);
     setNewStatus(sale.status);
+    setSelectedProductId('');
+    const items = sale.items?.map((item) => ({
+      product_id: item.product_id,
+      product_name: item.product?.name || 'Producto',
+      quantity: item.quantity,
+      unit_price: Number(item.unit_price),
+    })) || [];
+    setEditingItems(items);
+  };
+
+  const handleQuantityChange = (index: number, delta: number) => {
+    setEditingItems((prev) => {
+      const next = [...prev];
+      const newQty = Math.max(1, next[index].quantity + delta);
+      next[index] = { ...next[index], quantity: newQty };
+      return next;
+    });
+  };
+
+  const handlePriceChange = (index: number, priceStr: string) => {
+    const val = parseFloat(priceStr);
+    setEditingItems((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], unit_price: isNaN(val) ? 0 : val };
+      return next;
+    });
+  };
+
+  const handleRemoveItem = (index: number) => {
+    setEditingItems((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAddProduct = () => {
+    if (!selectedProductId) return;
+    const prod = products.find((p) => p.id === selectedProductId);
+    if (!prod) return;
+
+    const existingIndex = editingItems.findIndex((i) => i.product_id === prod.id);
+    if (existingIndex >= 0) {
+      handleQuantityChange(existingIndex, 1);
+    } else {
+      setEditingItems((prev) => [
+        ...prev,
+        {
+          product_id: prod.id,
+          product_name: prod.name,
+          quantity: 1,
+          unit_price: Number(prod.price_usd),
+        },
+      ]);
+    }
+    setSelectedProductId('');
+  };
+
+  const editingTotalUsd = useMemo(() => {
+    return editingItems.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
+  }, [editingItems]);
+
+  const editingTotalBs = useMemo(() => {
+    return editingTotalUsd * rate;
+  }, [editingTotalUsd, rate]);
+
+  const handleSaveSale = async () => {
+    if (!editingSale) return;
+    try {
+      await updateSale({
+        id: editingSale.id,
+        status: newStatus,
+        items: editingItems.map((item) => ({
+          product_id: item.product_id,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+        })),
+      });
+      setEditingSale(null);
+    } catch (error: any) {
+      alert(`Error al actualizar la venta: ${error.message}`);
+    }
   };
 
   return (
@@ -421,11 +507,11 @@ export default function SalesHistoryPage() {
           </div>
         )}
 
-        {/* MODAL: Editar Estado de Venta */}
+        {/* MODAL: Editar Venta / Deuda */}
         {editingSale !== null && (
           <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 backdrop-blur-[2px] animate-fade-in" onClick={() => setEditingSale(null)}>
             <div 
-              className="relative w-full max-w-md bg-white rounded-t-[32px] p-6 pb-8 shadow-2xl border-t border-[#EADED9] animate-slide-up"
+              className="relative w-full max-w-md bg-white rounded-t-4xl p-6 pb-8 shadow-2xl border-t border-[#EADED9] animate-slide-up max-h-[90vh] overflow-y-auto no-scrollbar"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Barra indicadora superior */}
@@ -442,24 +528,24 @@ export default function SalesHistoryPage() {
               {/* Título */}
               <div className="mb-5">
                 <h3 className="text-xl font-black text-[#5C2320] tracking-tight">
-                  Actualizar Cobro
+                  Editar Venta
                 </h3>
                 <p className="text-xs font-bold text-slate-400 mt-1">
                   Cliente: <span className="font-black text-slate-700">{editingSale.client?.name || 'Cliente General'}</span>
                 </p>
               </div>
 
-              {/* Opciones de Estado */}
+              {/* Opciones de Estado de Pago */}
               <div className="space-y-3 mb-6">
                 <label className="block text-[10px] font-black uppercase tracking-wider text-[#7A2F2B]">
                   Estado de Pago
                 </label>
                 
-                <div className="grid grid-cols-1 gap-2.5">
+                <div className="grid grid-cols-3 gap-2">
                   {[
-                    { id: 'PAID', title: 'Pagado', desc: 'La venta está cobrada por completo', color: '#1E7F46', bg: '#EAFDF3' },
-                    { id: 'PENDING', title: 'Pendiente', desc: 'Aún no se ha recibido ningún pago', color: '#B76E00', bg: '#FFF6E9' },
-                    { id: 'PARTIAL', title: 'Abono Parcial', desc: 'Se recibió un abono parcial de la deuda', color: '#355FC4', bg: '#EEF4FF' }
+                    { id: 'PAID', title: 'Pagado' },
+                    { id: 'PENDING', title: 'Pendiente' },
+                    { id: 'PARTIAL', title: 'Abono' }
                   ].map((option) => {
                     const isSelected = newStatus === option.id;
                     return (
@@ -467,39 +553,155 @@ export default function SalesHistoryPage() {
                         key={option.id}
                         type="button"
                         onClick={() => setNewStatus(option.id as SaleStatus)}
-                        className={`w-full flex items-center justify-between p-3.5 rounded-2xl border text-left transition-all cursor-pointer
+                        className={`py-2.5 px-3 rounded-xl border text-center transition-all cursor-pointer text-xs font-bold
                           ${isSelected 
-                            ? 'border-[#7A2F2B] bg-[#FAF5F3] ring-1 ring-[#7A2F2B]' 
-                            : 'border-slate-150 bg-white hover:bg-slate-50'
+                            ? 'border-[#7A2F2B] bg-[#FAF5F3] text-[#5C2320] ring-1 ring-[#7A2F2B]' 
+                            : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                           }
                         `}
                       >
-                        <div>
-                          <span className="block text-xs font-black text-slate-800">{option.title}</span>
-                          <span className="block text-[10px] text-slate-400 font-semibold mt-0.5">{option.desc}</span>
-                        </div>
-                        <span className="w-5 h-5 rounded-full border-2 border-slate-200 flex items-center justify-center p-0.5">
-                          {isSelected && <div className="w-full h-full rounded-full bg-[#5C2320]"></div>}
-                        </span>
+                        {option.title}
                       </button>
                     );
                   })}
                 </div>
               </div>
 
+              {/* Detalle y Edición de Productos */}
+              <div className="space-y-3 mb-6">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-[#7A2F2B]">
+                    Productos en esta Venta
+                  </label>
+                  <span className="text-[10px] font-bold text-slate-400">
+                    {editingItems.length} {editingItems.length === 1 ? 'producto' : 'productos'}
+                  </span>
+                </div>
+
+                {/* Lista de productos editables */}
+                <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                  {editingItems.length === 0 ? (
+                    <p className="text-xs text-slate-400 italic text-center py-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                      No hay productos agregados
+                    </p>
+                  ) : (
+                    editingItems.map((item, idx) => (
+                      <div 
+                        key={`${item.product_id}-${idx}`}
+                        className="p-3 bg-[#FAF8F6] border border-[#F2ECE9] rounded-2xl space-y-2"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-black text-slate-800 truncate">
+                            {item.product_name}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveItem(idx)}
+                            className="p-1 text-slate-400 hover:text-red-600 transition-colors"
+                            title="Eliminar producto"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100">
+                          {/* Controles de Cantidad */}
+                          <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-2 py-1">
+                            <button
+                              type="button"
+                              onClick={() => handleQuantityChange(idx, -1)}
+                              className="w-5 h-5 flex items-center justify-center text-slate-500 hover:text-slate-800 cursor-pointer"
+                            >
+                              <Minus size={12} className="stroke-3" />
+                            </button>
+                            <span className="text-xs font-black w-6 text-center text-slate-800">
+                              {item.quantity}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleQuantityChange(idx, 1)}
+                              className="w-5 h-5 flex items-center justify-center text-slate-500 hover:text-slate-800 cursor-pointer"
+                            >
+                              <Plus size={12} className="stroke-3" />
+                            </button>
+                          </div>
+
+                          {/* Campo de Precio Unitario */}
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] font-bold text-slate-400">$</span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={item.unit_price}
+                              onChange={(e) => handlePriceChange(idx, e.target.value)}
+                              className="w-16 bg-white border border-slate-200 rounded-xl px-2 py-1 text-xs font-black text-slate-800 outline-none focus:border-[#7A2F2B]"
+                            />
+                          </div>
+
+                          {/* Subtotal del item */}
+                          <div className="text-right min-w-15">
+                            <span className="text-xs font-black text-[#5C2320]">
+                              {formatCurrencyUsd(item.quantity * item.unit_price)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Selección para agregar nuevo producto */}
+                <div className="pt-2 border-t border-slate-100 flex gap-2">
+                  <select
+                    value={selectedProductId}
+                    onChange={(e) => setSelectedProductId(e.target.value)}
+                    className="flex-1 bg-white border border-[#EADED9] rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-[#7A2F2B]"
+                  >
+                    <option value="">-- Seleccionar producto para agregar --</option>
+                    {products.map((prod) => (
+                      <option key={prod.id} value={prod.id}>
+                        {prod.name} ({formatCurrencyUsd(prod.price_usd)})
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleAddProduct}
+                    disabled={!selectedProductId}
+                    className="bg-[#5C2320] hover:bg-[#7A2F2B] disabled:opacity-40 text-white px-3 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1 cursor-pointer"
+                  >
+                    <Plus size={14} className="stroke-3" />
+                    <span>Agregar</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Resumen de totales calculados */}
+              <div className="bg-[#FAF8F6] border border-[#F2ECE9] p-3.5 rounded-2xl mb-6 space-y-1.5">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-bold text-slate-500">Nuevo Total USD:</span>
+                  <span className="font-black text-[#5C2320] text-sm">{formatCurrencyUsd(editingTotalUsd)}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-bold text-slate-400">Nuevo Total Bs:</span>
+                  <span className="font-bold text-slate-600">{formatCurrencyBs(editingTotalBs)}</span>
+                </div>
+              </div>
+
               {/* Botón de Guardar */}
               <button 
-                onClick={handleUpdateStatus}
-                disabled={isUpdatingStatus}
+                onClick={handleSaveSale}
+                disabled={isUpdatingSale || editingItems.length === 0}
                 className="w-full bg-[#5C2320] hover:bg-[#7A2F2B] disabled:opacity-50 text-white text-sm font-black py-4 rounded-2xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
               >
-                {isUpdatingStatus ? (
+                {isUpdatingSale ? (
                   <>
                     <Loader2 size={16} className="animate-spin" />
                     <span>Guardando cambios...</span>
                   </>
                 ) : (
-                  <span>Guardar Estado</span>
+                  <span>Guardar Cambios</span>
                 )}
               </button>
             </div>

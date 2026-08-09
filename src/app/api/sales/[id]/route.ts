@@ -23,20 +23,30 @@ export async function GET(request: Request, { params }: RouteParams) {
 export async function PATCH(request: Request, { params }: RouteParams) {
   try {
     const { id } = await params;
-    const { status } = await request.json();
-    if (!status || !['PAID', 'PENDING', 'PARTIAL'].includes(status)) {
+    const body = await request.json();
+    const { status, items } = body;
+
+    if (status && !['PAID', 'PENDING', 'PARTIAL'].includes(status)) {
       return NextResponse.json(
         { success: false, error: 'Estado de venta inválido' },
         { status: 400 }
       );
     }
-    const updatedSale = await SalesService.updateStatus(id, status);
+
+    if (items && !Array.isArray(items)) {
+      return NextResponse.json(
+        { success: false, error: 'Lista de productos inválida' },
+        { status: 400 }
+      );
+    }
+
+    const updatedSale = await SalesService.updateSale(id, { status, items });
     return NextResponse.json({ success: true, data: updatedSale });
   } catch (error: any) {
     console.error('[src/app/api/sales/[id]/route.ts] status: 500, error:', error);
 
     return NextResponse.json(
-      { success: false, error: error.message || 'Error al actualizar estado de venta' },
+      { success: false, error: error.message || 'Error al actualizar venta' },
       { status: 500 }
     );
   }

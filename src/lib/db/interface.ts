@@ -25,6 +25,13 @@ export interface DatabaseAdapter {
   getSaleById(id: string): Promise<Sale>;
   createSale(input: CreateSaleInput): Promise<Sale>;
   updateSaleStatus(id: string, status: SaleStatus): Promise<Sale>;
+  updateSale(
+    id: string,
+    input: {
+      status?: SaleStatus;
+      items?: Array<{ product_id: string; quantity: number; unit_price: number }>;
+    }
+  ): Promise<Sale>;
   getDebts(): Promise<Sale[]>;
   getClientDebts(clientId: string): Promise<any[]>;
 

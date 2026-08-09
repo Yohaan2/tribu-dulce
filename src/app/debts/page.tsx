@@ -92,11 +92,17 @@ export default function DebtsPage() {
     return false;
   };
 
-  const formatPhone = (phone: string) => {
-    if (!phone) return '';
-    const cleaned = phone.replace('0', '');
-    console.log(cleaned)
-    return `https://wa.me/+58${cleaned}`;
+  const formatPhone = (phone: string, text?: string) => {
+    if (!phone) return '#';
+    let cleaned = phone.replace(/\D/g, '').replace(/^0+/, '');
+    if (!cleaned.startsWith('58')) {
+      cleaned = `58${cleaned}`;
+    }
+    const baseUrl = `https://api.whatsapp.com/send?phone=${cleaned}`;
+    if (text) {
+      return `${baseUrl}&text=${encodeURIComponent(text)}`;
+    }
+    return baseUrl;
   };
 
   // Agrupar deudas por cliente
@@ -586,25 +592,94 @@ export default function DebtsPage() {
 
               {/* Recuadro de Teléfono del Cliente */}
               {selectedDetailSale.client?.phone && (
-                <div className="bg-[#5C2320] rounded-2xl p-4 mb-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div>
-                      <p className="text-[10px] font-bold text-white/70 uppercase tracking-wider">Teléfono del Cliente</p>
-                      <p className="text-base font-black text-white">{selectedDetailSale.client.phone}</p>
+                <div className="space-y-2 mb-4">
+                  <div className="bg-[#5C2320] rounded-2xl p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div>
+                        <p className="text-[10px] font-bold text-white/70 uppercase tracking-wider">Teléfono del Cliente</p>
+                        <p className="text-base font-black text-white">{selectedDetailSale.client.phone}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <a
+                        href={`tel:${selectedDetailSale.client.phone}`}
+                        className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors"
+                        title="Llamar"
+                      >
+                        <Phone size={18} />
+                      </a>
+                      <a 
+                        href={formatPhone(selectedDetailSale.client.phone)} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors"
+                        title="Abrir WhatsApp"
+                      >
+                        <MessageSquareText size={18} />
+                      </a>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <a
-                      href={`tel:${selectedDetailSale.client.phone}`}
-                      className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors"
-                    >
-                      <Phone size={18} />
-                    </a>
-                    <a href={formatPhone(selectedDetailSale.client.phone)} target="_blank" rel="noopener noreferrer"
-                      className='flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors'>
-                      <MessageSquareText size={18} />
-                    </a>
-                  </div>
+
+                  {/* Opciones de Mensajes de WhatsApp */}
+                  {(() => {
+                    const totalFacturado = selectedDetailSale.sales.reduce((sum: number, sale: any) => sum + Number(sale.total_usd), 0);
+                    const totalAbonado = selectedDetailSale.sales.reduce((sum: number, sale: any) => {
+                      return sum + (sale.payments || []).reduce((acc: number, p: any) => acc + Number(p.amount_usd), 0);
+                    }, 0);
+                    const totalPendienteUsd = totalFacturado - totalAbonado;
+                    const totalPendienteBs = totalPendienteUsd * rate;
+                    const clientName = selectedDetailSale.client?.name || 'Cliente';
+
+                    const msgRegular = `Hola ${clientName}, te escribo de parte de Tribu Dulce, espero estes bien. Estas adeudando un total de ${totalPendienteUsd.toFixed(2)}$\n\nNuestros datos de pago son los siguientes 30.522.362 04144159207 0134 Bs ${totalPendienteBs.toFixed(2)}\n\nQuedo a la espera del capture \u{1F917}`;
+
+                    const msgVencido = `Hola ${clientName} , te escribo de parte de Tribu Dulce, espero estes bien. Porfavor, es necesario que te pongas al dia con tu cuenta, estas adeudando un total de ${totalPendienteUsd.toFixed(2)}$\n\nNuestros datos de pago son los siguientes 30.522.362 04144159207 0134 Bs ${totalPendienteBs.toFixed(2)}\n\nQuedo a la espera del capture o acuerdo de entrega de efectivo\u{1F917}`;
+
+                    return (
+                      <div className="space-y-2 pt-1">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-[#7A2F2B]">
+                          Enviar Notificación por WhatsApp
+                        </p>
+                        
+                        <a
+                          href={formatPhone(selectedDetailSale.client.phone, msgRegular)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-between p-3 bg-[#FAF8F6] border border-[#F2ECE9] hover:border-[#EADED9] hover:bg-[#FAF5F3] rounded-2xl transition-all cursor-pointer group"
+                        >
+                          <div className="space-y-0.5 pr-2">
+                            <span className="block text-xs font-black text-slate-800 group-hover:text-[#5C2320] transition-colors">
+                              Mensaje de Cobro Regular
+                            </span>
+                            <span className="block text-[10px] text-slate-400 font-semibold line-clamp-1">
+                              Recordatorio estándar (${totalPendienteUsd.toFixed(2)} / Bs {totalPendienteBs.toFixed(2)})
+                            </span>
+                          </div>
+                          <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                            <MessageSquareText size={16} />
+                          </div>
+                        </a>
+
+                        <a
+                          href={formatPhone(selectedDetailSale.client.phone, msgVencido)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-between p-3 bg-[#FAF8F6] border border-[#F2ECE9] hover:border-[#EADED9] hover:bg-[#FAF5F3] rounded-2xl transition-all cursor-pointer group"
+                        >
+                          <div className="space-y-0.5 pr-2">
+                            <span className="block text-xs font-black text-slate-800 group-hover:text-[#5C2320] transition-colors">
+                              Mensaje de Cobro Vencido
+                            </span>
+                            <span className="block text-[10px] text-slate-400 font-semibold line-clamp-1">
+                              Notificación de deuda vencida / acuerdo de efectivo
+                            </span>
+                          </div>
+                          <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                            <TriangleAlert size={16} />
+                          </div>
+                        </a>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 
