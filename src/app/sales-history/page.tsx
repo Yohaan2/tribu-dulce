@@ -55,6 +55,10 @@ export default function SalesHistoryPage() {
   const [editingItems, setEditingItems] = useState<EditableItem[]>([]);
   const [selectedProductId, setSelectedProductId] = useState<string>('');
 
+  // State para modal de confirmación de cambios
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+  const [isClosingConfirm, setIsClosingConfirm] = useState(false);
+
   // Filtrado y agrupado de las ventas
   const filteredSales = useMemo(() => {
     let result = [...sales];
@@ -223,6 +227,28 @@ export default function SalesHistoryPage() {
   const editingTotalBs = useMemo(() => {
     return editingTotalUsd * rate;
   }, [editingTotalUsd, rate]);
+
+  const handleOpenConfirm = () => {
+    setIsClosingConfirm(false);
+    setShowSaveConfirm(true);
+  };
+
+  const handleCancelConfirm = () => {
+    setIsClosingConfirm(true);
+    setTimeout(() => {
+      setShowSaveConfirm(false);
+      setIsClosingConfirm(false);
+    }, 250);
+  };
+
+  const handleAcceptConfirm = async () => {
+    setIsClosingConfirm(true);
+    setTimeout(async () => {
+      setShowSaveConfirm(false);
+      setIsClosingConfirm(false);
+      await handleSaveSale();
+    }, 250);
+  };
 
   const handleSaveSale = async () => {
     if (!editingSale) return;
@@ -691,7 +717,7 @@ export default function SalesHistoryPage() {
 
               {/* Botón de Guardar */}
               <button 
-                onClick={handleSaveSale}
+                onClick={handleOpenConfirm}
                 disabled={isUpdatingSale || editingItems.length === 0}
                 className="w-full bg-[#5C2320] hover:bg-[#7A2F2B] disabled:opacity-50 text-white text-sm font-black py-4 rounded-2xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
               >
@@ -704,6 +730,62 @@ export default function SalesHistoryPage() {
                   <span>Guardar Cambios</span>
                 )}
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL: Confirmación de Guardado */}
+        {showSaveConfirm && (
+          <div 
+            className={`fixed inset-0 z-60 flex items-end sm:items-center justify-center bg-slate-900/40 backdrop-blur-[2px] p-0 sm:p-4 ${
+              isClosingConfirm ? 'animate-fade-out' : 'animate-fade-in'
+            }`}
+            onClick={handleCancelConfirm}
+          >
+            <div 
+              className={`relative w-full max-w-xs sm:max-w-sm bg-white rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl border border-[#EADED9] ${
+                isClosingConfirm ? 'animate-slide-down' : 'animate-slide-up'
+              }`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-12 h-1 bg-[#E0D5D1] rounded-full mx-auto mb-4 sm:hidden"></div>
+
+              <div className="text-center space-y-2 mb-6">
+                <div className="w-12 h-12 rounded-full bg-[#FAF5F3] text-[#7A2F2B] flex items-center justify-center mx-auto mb-3 border border-[#EADED9]">
+                  <AlertCircle size={24} className="stroke-[2.5]" />
+                </div>
+                <h4 className="text-lg font-black text-[#5C2320]">
+                  ¿Confirmar Cambios?
+                </h4>
+                <p className="text-xs font-semibold text-slate-500 leading-relaxed">
+                  ¿Estás seguro de que deseas guardar las modificaciones realizadas en esta venta?
+                </p>
+              </div>
+
+              <div className="flex gap-2.5">
+                <button
+                  type="button"
+                  onClick={handleCancelConfirm}
+                  className="flex-1 py-3 px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAcceptConfirm}
+                  disabled={isUpdatingSale}
+                  className="flex-1 py-3 px-4 rounded-xl bg-[#5C2320] hover:bg-[#7A2F2B] text-white text-xs font-black shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                >
+                  {isUpdatingSale ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      <span>Guardando...</span>
+                    </>
+                  ) : (
+                    <span>Aceptar</span>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         )}

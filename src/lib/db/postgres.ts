@@ -262,7 +262,7 @@ export class PostgresAdapter implements DatabaseAdapter {
           payments: true,
         },
       },
-      order: { name: 'ASC' },
+      order: { created_at: 'DESC' },
       skip,
       take,
     });

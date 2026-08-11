@@ -3,12 +3,22 @@ import { Client } from '@/types';
 import { CreateClientInput, UpdateClientInput } from '@/schemas/client.schema';
 import { authFetch } from '@/lib/api';
 
+interface FetchClientsResponse {
+  data: Client[];
+  total: number;
+  totalPages: number;
+}
+
 // Helper de peticiones fetch
-async function fetchClients(page: number = 1, limit: number = 10): Promise<Client[]> {
+async function fetchClients(page: number = 1, limit: number = 10): Promise<FetchClientsResponse> {
   const res = await authFetch(`/api/clients?page=${page}&limit=${limit}`);
   const json = await res.json();
   if (!json.success) throw new Error(json.error);
-  return json.data;
+  return {
+    data: json.data || [],
+    total: json.pagination?.total || 0,
+    totalPages: json.pagination?.totalPages || 0,
+  };
 }
 
 async function createClient(input: CreateClientInput): Promise<Client> {
@@ -95,7 +105,9 @@ export function useClients(page: number = 1, limit: number = 10) {
   });
 
   return {
-    clients: clientsQuery.data || [],
+    clients: clientsQuery.data?.data || [],
+    total: clientsQuery.data?.total || 0,
+    totalPages: clientsQuery.data?.totalPages || 0,
     isLoading: clientsQuery.isLoading,
     error: clientsQuery.error,
     createClient: createMutation.mutateAsync,

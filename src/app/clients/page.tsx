@@ -13,6 +13,7 @@ import {
   Clock,
 } from 'lucide-react';
 import SelectInput, { SelectOption } from '@/components/ui/select-input';
+import Pagination from '@/components/ui/pagination';
 
 interface Client {
   id: string;
@@ -21,7 +22,9 @@ interface Client {
 }
 
 export default function ClientsPage() {
-  const { clients, isLoading, createClient, updateClient, deleteClient } = useClients();
+  const [currentPage, setCurrentPage] = useState(1);
+  const limit = 10;
+  const { clients, total, totalPages, isLoading, createClient, updateClient, deleteClient } = useClients(currentPage, limit);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [countryCode, setCountryCode] = useState('0412');
@@ -210,6 +213,18 @@ export default function ClientsPage() {
                 </div>
               ))}
             </div>
+          )}
+
+          {/* Componente de Paginación */}
+          {!isLoading && totalPages > 0 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={total}
+              itemsPerPage={limit}
+              onPageChange={(page) => setCurrentPage(page)}
+              className="mt-6"
+            />
           )}
         </div>
 
