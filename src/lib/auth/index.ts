@@ -88,9 +88,15 @@ class PostgresAuthProvider implements AuthProvider {
   }
 
   async logout(): Promise<void> {
+    const token = getClientToken();
     clearClientAuth();
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
     } catch (error) {
       console.error('Error al llamar logout endpoint:', error);
     }

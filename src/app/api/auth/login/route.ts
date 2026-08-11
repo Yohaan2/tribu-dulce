@@ -137,13 +137,23 @@ export async function POST(request: Request) {
       created_at: user.created_at.toISOString(),
     };
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       data: {
         token,
         user: userResponse,
       },
     }, { status: 200 });
+
+    response.cookies.set('auth_token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 8 * 60 * 60,
+    });
+
+    return response;
 
   } catch (error: any) {
     console.error('[src/app/api/auth/login/route.ts] status: 500, error:', error);

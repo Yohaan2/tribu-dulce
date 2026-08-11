@@ -38,6 +38,8 @@ services:
       context: .
       dockerfile: Dockerfile
       target: runner
+      args:
+        JWT_SECRET: ${JWT_SECRET}
     restart: unless-stopped
     environment:
       DATABASE_PROVIDER: postgres

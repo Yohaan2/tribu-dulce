@@ -65,13 +65,23 @@ export async function POST(request: Request) {
       created_at: savedProfile.created_at.toISOString(),
     };
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       data: {
         token,
         user,
       },
     }, { status: 201 });
+
+    response.cookies.set('auth_token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 8 * 60 * 60,
+    });
+
+    return response;
 
   } catch (error: any) {
     console.error('[src/app/api/auth/register/route.ts] status: 500, error:', error);

@@ -12,6 +12,10 @@ RUN npm ci
 # ============================================================
 FROM node:20-alpine AS builder
 WORKDIR /app
+
+ARG JWT_SECRET
+ENV JWT_SECRET=${JWT_SECRET}
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build

@@ -23,19 +23,12 @@ export function setClientAuth(token: string, user: UserProfile): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(USER_KEY, JSON.stringify(user));
-  
-  // Guardar en cookies para el middleware (expira en 8 horas)
-  const maxAge = 8 * 60 * 60; // 8 horas en segundos
-  document.cookie = `${TOKEN_KEY}=${token}; path=/; max-age=${maxAge}; SameSite=Lax; Secure`;
 }
 
 export function clearClientAuth(): void {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
-  
-  // Limpiar cookie para el middleware
-  document.cookie = `${TOKEN_KEY}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC; SameSite=Lax; Secure`;
 }
 
 export function isTokenExpired(token: string): boolean {
