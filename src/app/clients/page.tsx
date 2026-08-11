@@ -11,6 +11,7 @@ import {
   Pencil,
   X,
   Clock,
+  Search,
 } from 'lucide-react';
 import SelectInput, { SelectOption } from '@/components/ui/select-input';
 import Pagination from '@/components/ui/pagination';
@@ -23,8 +24,9 @@ interface Client {
 
 export default function ClientsPage() {
   const [currentPage, setCurrentPage] = useState(1);
+  const [search, setSearch] = useState('');
   const limit = 10;
-  const { clients, total, totalPages, isLoading, createClient, updateClient, deleteClient } = useClients(currentPage, limit);
+  const { clients, total, totalPages, isLoading, createClient, updateClient, deleteClient } = useClients(currentPage, limit, search);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [countryCode, setCountryCode] = useState('0412');
@@ -129,6 +131,31 @@ export default function ClientsPage() {
       <div className="relative pb-16">
         {/* Listado de Tarjetas */}
         <div className="max-w-2xl mx-auto space-y-4">
+          <div className="relative">
+            <Search size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setCurrentPage(1);
+              }}
+              placeholder="Buscar por nombre o teléfono..."
+              aria-label="Buscar clientes por nombre o teléfono"
+              className="block w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-10 text-sm text-slate-800 shadow-sm outline-none transition-colors placeholder:text-slate-400 focus:border-primary focus:ring-1 focus:ring-primary"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                aria-label="Limpiar búsqueda"
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 hover:bg-slate-50 hover:text-slate-600"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+
           {isLoading ? (
             <div className="flex h-60 items-center justify-center text-sm text-slate-400">
               Cargando lista de clientes...
@@ -136,13 +163,15 @@ export default function ClientsPage() {
           ) : clients.length === 0 ? (
             <div className="flex h-60 flex-col items-center justify-center text-slate-400 bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
               <Users size={40} className="mb-2 stroke-[1.5] text-slate-300" />
-              <p className="text-sm">No hay clientes registrados en el sistema.</p>
-              <button
+              <p className="text-sm">
+                {search ? 'No se encontraron clientes con esa búsqueda.' : 'No hay clientes registrados en el sistema.'}
+              </p>
+              {!search && <button
                 onClick={handleOpenCreateModal}
                 className="mt-4 rounded-lg bg-primary px-4 py-2 text-xs font-bold text-white shadow-md shadow-primary/10 hover:opacity-90 active:scale-95 transition-all"
               >
                 Registrar Primer Cliente
-              </button>
+              </button>}
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-1">

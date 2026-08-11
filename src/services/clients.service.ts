@@ -3,8 +3,8 @@ import { Client } from '@/types';
 import { CreateClientInput, UpdateClientInput } from '@/schemas/client.schema';
 
 export class ClientsService {
-  static async getClients(page: number = 1, limit: number = 10): Promise<{ data: any[]; total: number }> {
-    const { data, total } = await db.getClients(page, limit);
+  static async getClients(page: number = 1, limit: number = 10, search?: string): Promise<{ data: any[]; total: number }> {
+    const { data, total } = await db.getClients(page, limit, search);
 
     // Calcular estadísticas por cliente
     const clientsWithStats = (data || []).map((client: any) => {

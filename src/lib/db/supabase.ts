@@ -12,7 +12,7 @@ export class SupabaseAdapter implements DatabaseAdapter {
   }
 
   // --- CLIENTES ---
-  async getClients(page?: number, limit?: number): Promise<{ data: Client[]; total: number }> {
+  async getClients(page?: number, limit?: number, search?: string): Promise<{ data: Client[]; total: number }> {
     const supabase = await this.getClient();
     const start = page && limit ? (page - 1) * limit : 0;
     const end = page && limit ? start + limit - 1 : undefined;
@@ -32,6 +32,10 @@ export class SupabaseAdapter implements DatabaseAdapter {
         { count: 'exact' }
       )
       .order('name', { ascending: true });
+
+    if (search) {
+      query = query.or(`name.ilike.%${search}%,phone.ilike.%${search}%`);
+    }
 
     if (end !== undefined) {
       query = query.range(start, end);

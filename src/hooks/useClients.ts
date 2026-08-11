@@ -10,8 +10,11 @@ interface FetchClientsResponse {
 }
 
 // Helper de peticiones fetch
-async function fetchClients(page: number = 1, limit: number = 10): Promise<FetchClientsResponse> {
-  const res = await authFetch(`/api/clients?page=${page}&limit=${limit}`);
+async function fetchClients(page: number = 1, limit: number = 10, search: string = ''): Promise<FetchClientsResponse> {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+  if (search.trim()) params.set('search', search.trim());
+
+  const res = await authFetch(`/api/clients?${params.toString()}`);
   const json = await res.json();
   if (!json.success) throw new Error(json.error);
   return {
@@ -65,12 +68,12 @@ async function getClientByName(name: string): Promise<Client> {
   return json.data;
 }
 
-export function useClients(page: number = 1, limit: number = 10) {
+export function useClients(page: number = 1, limit: number = 10, search: string = '') {
   const queryClient = useQueryClient();
 
   const clientsQuery = useQuery({
-    queryKey: ['clients', page, limit],
-    queryFn: () => fetchClients(page, limit),
+    queryKey: ['clients', page, limit, search],
+    queryFn: () => fetchClients(page, limit, search),
   });
 
   const createMutation = useMutation({

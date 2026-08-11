@@ -248,7 +248,7 @@ const toNumber = (val: any): number => (val !== undefined && val !== null ? Numb
 
 export class PostgresAdapter implements DatabaseAdapter {
   // --- CLIENTES ---
-  async getClients(page?: number, limit?: number): Promise<{ data: Client[]; total: number }> {
+  async getClients(page?: number, limit?: number, search?: string): Promise<{ data: Client[]; total: number }> {
     const ds = await getDataSource();
     const repo = ds.getRepository(ClientEntity);
 
@@ -262,6 +262,12 @@ export class PostgresAdapter implements DatabaseAdapter {
           payments: true,
         },
       },
+      where: search
+        ? [
+            { name: ILike(`%${search}%`) },
+            { phone: ILike(`%${search}%`) },
+          ]
+        : undefined,
       order: { created_at: 'DESC' },
       skip,
       take,

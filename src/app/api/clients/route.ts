@@ -8,6 +8,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const name = searchParams.get('name');
+    const search = searchParams.get('search')?.trim();
 
     if (name) {
       const client = await ClientsService.getByName(name);
@@ -19,7 +20,7 @@ export async function GET(request: Request) {
     const page = Number.isNaN(parsedPage) ? 1 : Math.max(1, parsedPage);
     const limit = Number.isNaN(parsedLimit) ? 10 : Math.max(1, parsedLimit);
 
-    const { data, total } = await ClientsService.getClients(page, limit);
+    const { data, total } = await ClientsService.getClients(page, limit, search);
     const totalPages = Math.ceil(total / limit);
 
     return NextResponse.json({
