@@ -47,6 +47,6 @@ export interface DatabaseAdapter {
   getDashboardStats(todayStart: string, weekStart: string, monthStart: string): Promise<DashboardStats>;
 
   // --- AUDITORIA ---
-  getAuditLogs(limit?: number): Promise<AuditLog[]>;
+  getAuditLogs(page?: number, limit?: number): Promise<{ data: AuditLog[]; total: number }>;
   createAuditLog(input: CreateAuditLogInput): Promise<AuditLog>;
 }

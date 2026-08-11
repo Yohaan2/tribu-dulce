@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getDataSource, ProfileEntity } from '@/lib/db/postgres';
 import { comparePassword } from '@/lib/auth/password';
 import { generateToken } from '@/lib/auth/jwt';
+import { AuditService } from '@/services/audit.service';
 
 // Almacén básico en memoria para rate limiting
 const loginAttempts = new Map<string, { count: number; resetTime: number }>();
@@ -109,6 +110,15 @@ export async function POST(request: Request) {
 
     // Resetear rate limiting al iniciar sesión exitosamente
     resetRateLimit(ip);
+
+    // Registrar inicio de sesión en auditoría
+    await AuditService.record({
+      user_id: user.id,
+      action: 'USER_LOGIN',
+      entity_type: 'user',
+      entity_id: user.id,
+      details: { email: user.email, role: user.role },
+    });
 
     // Generar token JWT
     const token = generateToken({

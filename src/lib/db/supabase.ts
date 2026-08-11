@@ -559,15 +559,17 @@ export class SupabaseAdapter implements DatabaseAdapter {
   }
 
   // --- AUDITORIA ---
-  async getAuditLogs(limit: number = 100): Promise<AuditLog[]> {
+  async getAuditLogs(page: number = 1, limit: number = 10): Promise<{ data: AuditLog[]; total: number }> {
     const supabase = await this.getClient();
-    const { data, error } = await supabase
+    const offset = (page - 1) * limit;
+    const { data, error, count } = await supabase
       .from('audit_logs_view')
-      .select('*')
-      .limit(limit);
+      .select('*', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (error) throw new Error(error.message);
-    return (data || []) as AuditLog[];
+    return { data: (data || []) as AuditLog[], total: count || 0 };
   }
 
   async createAuditLog(input: CreateAuditLogInput): Promise<AuditLog> {

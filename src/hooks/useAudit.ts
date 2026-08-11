@@ -2,21 +2,36 @@ import { useQuery } from '@tanstack/react-query';
 import { AuditLog } from '@/types';
 import { authFetch } from '@/lib/api';
 
-async function fetchAuditLogs(limit: number = 100): Promise<AuditLog[]> {
-  const res = await authFetch(`/api/audit?limit=${limit}`);
-  const json = await res.json();
-  if (!json.success) throw new Error(json.error);
-  return json.data;
+interface FetchAuditResponse {
+  data: AuditLog[];
+  total: number;
+  totalPages: number;
 }
 
-export function useAudit(limit: number = 100) {
+async function fetchAuditLogs(page: number = 1, limit: number = 10): Promise<FetchAuditResponse> {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+
+  const res = await authFetch(`/api/audit?${params.toString()}`);
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error);
+
+  return {
+    data: json.data || [],
+    total: json.pagination?.total || 0,
+    totalPages: json.pagination?.totalPages || 0,
+  };
+}
+
+export function useAudit(page: number = 1, limit: number = 10) {
   const logsQuery = useQuery({
-    queryKey: ['audit', limit],
-    queryFn: () => fetchAuditLogs(limit),
+    queryKey: ['audit', page, limit],
+    queryFn: () => fetchAuditLogs(page, limit),
   });
 
   return {
-    logs: logsQuery.data || [],
+    logs: logsQuery.data?.data || [],
+    total: logsQuery.data?.total || 0,
+    totalPages: logsQuery.data?.totalPages || 0,
     isLoading: logsQuery.isLoading,
     error: logsQuery.error,
     refetch: logsQuery.refetch,

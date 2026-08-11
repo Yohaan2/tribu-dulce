@@ -841,34 +841,38 @@ export class PostgresAdapter implements DatabaseAdapter {
   }
 
   // --- AUDITORIA ---
-  async getAuditLogs(limit: number = 100): Promise<AuditLog[]> {
+  async getAuditLogs(page: number = 1, limit: number = 10): Promise<{ data: AuditLog[]; total: number }> {
     const ds = await getDataSource();
     const repo = ds.getRepository(AuditLogEntity);
-    const logs = await repo.find({
+    const [logs, total] = await repo.findAndCount({
       relations: { user: true },
       order: { created_at: 'DESC' },
       take: limit,
+      skip: (page - 1) * limit,
     });
 
-    return logs.map((log) => ({
-      id: log.id,
-      user_id: log.user_id,
-      user_name: log.user?.name || 'Usuario desconocido',
-      action: log.action,
-      entity_type: log.entity_type || null,
-      entity_id: log.entity_id || null,
-      details: log.details || null,
-      created_at: log.created_at.toISOString(),
-      formatted_datetime: log.created_at.toLocaleString('es-VE', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false,
-      }),
-    }));
+    return {
+      data: logs.map((log) => ({
+        id: log.id,
+        user_id: log.user_id,
+        user_name: log.user?.name || 'Usuario desconocido',
+        action: log.action,
+        entity_type: log.entity_type || null,
+        entity_id: log.entity_id || null,
+        details: log.details || null,
+        created_at: log.created_at.toISOString(),
+        formatted_datetime: log.created_at.toLocaleString('es-VE', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false,
+        }),
+      })),
+      total,
+    };
   }
 
   async createAuditLog(input: CreateAuditLogInput): Promise<AuditLog> {

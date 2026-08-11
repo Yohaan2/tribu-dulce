@@ -1,12 +1,15 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useAudit } from '@/hooks/useAudit';
+import Pagination from '@/components/ui/pagination';
 import { ClipboardList, User, Clock, Shield } from 'lucide-react';
 
 export default function AuditPage() {
-  const { logs, isLoading, error } = useAudit(50);
+  const [currentPage, setCurrentPage] = useState(1);
+  const limit = 10;
+  const { logs, total, totalPages, isLoading, error } = useAudit(currentPage, limit);
 
   return (
     <MainLayout title="Auditoría">
@@ -63,6 +66,16 @@ export default function AuditPage() {
                 ))}
               </tbody>
             </table>
+
+            {totalPages > 0 && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={total}
+                itemsPerPage={limit}
+                onPageChange={(page) => setCurrentPage(page)}
+              />
+            )}
           </div>
         )}
       </div>
