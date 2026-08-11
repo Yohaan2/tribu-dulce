@@ -11,7 +11,16 @@ export const GET = withAuth(
       const page = Number.isNaN(parsedPage) ? 1 : Math.max(1, parsedPage);
       const limit = Number.isNaN(parsedLimit) ? 10 : Math.max(1, parsedLimit);
 
-      const { data, total, totalPages } = await AuditService.getAll(page, limit);
+      const startDate = searchParams.get('startDate') || undefined;
+      const endDate = searchParams.get('endDate') || undefined;
+
+      const { data, total, totalPages } = await AuditService.getAll(
+        page,
+        limit,
+        startDate,
+        endDate
+      );
+
       return NextResponse.json({
         success: true,
         data,

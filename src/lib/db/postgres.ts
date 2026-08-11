@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { DataSource, Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn, ILike } from 'typeorm';
+import { DataSource, Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn, ILike, Between, MoreThanOrEqual, LessThanOrEqual } from 'typeorm';
 import { Client, Product, Sale, Payment, ExchangeRate, DashboardStats, SaleStatus, UserProfile, AuditLog, CreateAuditLogInput } from '@/types';
 import { CreateClientInput, UpdateClientInput } from '@/schemas/client.schema';
 import { CreateProductInput, UpdateProductInput } from '@/schemas/product.schema';
@@ -841,10 +841,25 @@ export class PostgresAdapter implements DatabaseAdapter {
   }
 
   // --- AUDITORIA ---
-  async getAuditLogs(page: number = 1, limit: number = 10): Promise<{ data: AuditLog[]; total: number }> {
+  async getAuditLogs(page: number = 1, limit: number = 10, startDate?: string, endDate?: string): Promise<{ data: AuditLog[]; total: number }> {
     const ds = await getDataSource();
     const repo = ds.getRepository(AuditLogEntity);
+
+    const where: any = {};
+    if (startDate && endDate) {
+      const start = new Date(startDate.includes('T') ? startDate : `${startDate}T00:00:00.000Z`);
+      const end = new Date(endDate.includes('T') ? endDate : `${endDate}T23:59:59.999Z`);
+      where.created_at = Between(start, end);
+    } else if (startDate) {
+      const start = new Date(startDate.includes('T') ? startDate : `${startDate}T00:00:00.000Z`);
+      where.created_at = MoreThanOrEqual(start);
+    } else if (endDate) {
+      const end = new Date(endDate.includes('T') ? endDate : `${endDate}T23:59:59.999Z`);
+      where.created_at = LessThanOrEqual(end);
+    }
+
     const [logs, total] = await repo.findAndCount({
+      where,
       relations: { user: true },
       order: { created_at: 'DESC' },
       take: limit,

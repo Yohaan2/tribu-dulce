@@ -559,12 +559,24 @@ export class SupabaseAdapter implements DatabaseAdapter {
   }
 
   // --- AUDITORIA ---
-  async getAuditLogs(page: number = 1, limit: number = 10): Promise<{ data: AuditLog[]; total: number }> {
+  async getAuditLogs(page: number = 1, limit: number = 10, startDate?: string, endDate?: string): Promise<{ data: AuditLog[]; total: number }> {
     const supabase = await this.getClient();
     const offset = (page - 1) * limit;
-    const { data, error, count } = await supabase
+
+    let query = supabase
       .from('audit_logs_view')
-      .select('*', { count: 'exact' })
+      .select('*', { count: 'exact' });
+
+    if (startDate) {
+      const startISO = startDate.includes('T') ? startDate : `${startDate}T00:00:00.000Z`;
+      query = query.gte('created_at', startISO);
+    }
+    if (endDate) {
+      const endISO = endDate.includes('T') ? endDate : `${endDate}T23:59:59.999Z`;
+      query = query.lte('created_at', endISO);
+    }
+
+    const { data, error, count } = await query
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 

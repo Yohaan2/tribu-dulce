@@ -8,8 +8,15 @@ interface FetchAuditResponse {
   totalPages: number;
 }
 
-async function fetchAuditLogs(page: number = 1, limit: number = 10): Promise<FetchAuditResponse> {
+async function fetchAuditLogs(
+  page: number = 1,
+  limit: number = 10,
+  startDate?: string,
+  endDate?: string
+): Promise<FetchAuditResponse> {
   const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+  if (startDate) params.set('startDate', startDate);
+  if (endDate) params.set('endDate', endDate);
 
   const res = await authFetch(`/api/audit?${params.toString()}`);
   const json = await res.json();
@@ -22,10 +29,15 @@ async function fetchAuditLogs(page: number = 1, limit: number = 10): Promise<Fet
   };
 }
 
-export function useAudit(page: number = 1, limit: number = 10) {
+export function useAudit(
+  page: number = 1,
+  limit: number = 10,
+  startDate?: string,
+  endDate?: string
+) {
   const logsQuery = useQuery({
-    queryKey: ['audit', page, limit],
-    queryFn: () => fetchAuditLogs(page, limit),
+    queryKey: ['audit', page, limit, startDate, endDate],
+    queryFn: () => fetchAuditLogs(page, limit, startDate, endDate),
   });
 
   return {
