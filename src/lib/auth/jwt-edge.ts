@@ -2,7 +2,7 @@ import type { TokenPayload } from './jwt';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'tribu-dulce-secret-key-fallback-2026';
 
-function decodeBase64Url(value: string): ArrayBuffer {
+function decodeBase64Url(value: string): Uint8Array<ArrayBuffer> {
   const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
   const padding = '='.repeat((4 - (base64.length % 4)) % 4);
   const decoded = atob(`${base64}${padding}`);
@@ -13,7 +13,7 @@ function decodeBase64Url(value: string): ArrayBuffer {
     bytes[index] = decoded.charCodeAt(index);
   }
 
-  return buffer;
+  return bytes;
 }
 
 function decodeJson(value: string): Record<string, unknown> {
