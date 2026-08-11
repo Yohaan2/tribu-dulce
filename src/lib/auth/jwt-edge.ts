@@ -53,7 +53,8 @@ export async function verifyTokenEdge(token: string): Promise<TokenPayload | nul
     if (!isSignatureValid) return null;
 
     return payload as unknown as TokenPayload;
-  } catch {
+  } catch (error: any) {
+    console.log('error', error);
     return null;
   }
 }
