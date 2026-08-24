@@ -737,6 +737,8 @@ export class PostgresAdapter implements DatabaseAdapter {
     // Parsear fechas ISO recibidas a objetos Date de JS
     const todayDate = new Date(todayStart);
     const weekDate = new Date(weekStart);
+    const weekEndDate = new Date(weekDate);
+    weekEndDate.setDate(weekEndDate.getDate() + 7);
     const monthDate = new Date(monthStart);
 
     // 1. Ventas de Hoy
@@ -750,6 +752,7 @@ export class PostgresAdapter implements DatabaseAdapter {
     const weekSalesData = await saleRepo.createQueryBuilder('sale')
       .select('SUM(sale.total_usd)', 'sum')
       .where('sale.created_at >= :weekDate', { weekDate })
+      .andWhere('sale.created_at < :weekEndDate', { weekEndDate })
       .getRawOne();
     const weekSales = toNumber(weekSalesData?.sum);
 
@@ -805,13 +808,13 @@ export class PostgresAdapter implements DatabaseAdapter {
     // 6. Datos semanales para el gráfico (últimos 7 días)
     const weekSalesList = await saleRepo.createQueryBuilder('sale')
       .where('sale.created_at >= :weekDate', { weekDate })
+      .andWhere('sale.created_at < :weekEndDate', { weekEndDate })
       .getMany();
 
-    const daysOfWeek = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-    const now = new Date();
+    const daysOfWeek = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
     const weeklyChartData = Array.from({ length: 7 }).map((_, i) => {
-      const d = new Date(now);
-      d.setDate(now.getDate() - (6 - i));
+      const d = new Date(weekDate);
+      d.setDate(weekDate.getDate() + i);
       const dayName = daysOfWeek[d.getDay()];
       const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
       const dayEnd = dayStart + 24 * 60 * 60 * 1000;

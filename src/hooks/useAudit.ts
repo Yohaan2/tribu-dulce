@@ -38,6 +38,8 @@ export function useAudit(
   const logsQuery = useQuery({
     queryKey: ['audit', page, limit, startDate, endDate],
     queryFn: () => fetchAuditLogs(page, limit, startDate, endDate),
+    refetchInterval: 20_000,
+    refetchOnWindowFocus: true
   });
 
   return {

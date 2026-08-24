@@ -7,9 +7,10 @@ export class DashboardService {
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
     
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(now.getDate() - 7);
-    const weekStart = sevenDaysAgo.toISOString();
+    const weekStartDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const daysSinceMonday = (weekStartDate.getDay() + 6) % 7;
+    weekStartDate.setDate(weekStartDate.getDate() - daysSinceMonday);
+    const weekStart = weekStartDate.toISOString();
 
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(now.getDate() - 30);

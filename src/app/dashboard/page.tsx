@@ -36,6 +36,21 @@ const MOCK_STATS = {
   ],
 };
 
+function getCurrentWeekRange() {
+  const today = new Date();
+  const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const daysSinceMonday = (monday.getDay() + 6) % 7;
+  monday.setDate(monday.getDate() - daysSinceMonday);
+
+  const sunday = new Date(monday);
+  sunday.setDate(sunday.getDate() + 6);
+
+  const formatDate = (date: Date) =>
+    `${String(date.getDate()).padStart(2, '0')}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
+  return `${formatDate(monday)} a ${formatDate(sunday)}`;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const { stats, isLoading } = useDashboard();
@@ -81,22 +96,22 @@ export default function DashboardPage() {
         </div>
 
         {/* Fila de Tarjetas (KPI Grid) */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {/* Card 1: Ventas Hoy */}
-          <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+          <div className="flex flex-col justify-between rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
                 Ventas Hoy
               </span>
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-pink-50 text-pink-600">
-                <DollarSign size={20} />
+              <div className="flex items-center justify-center rounded-xl bg-pink-50 text-pink-600">
+                <DollarSign size={16} />
               </div>
             </div>
             <div className="mt-4">
-              <h3 className="text-2xl font-black text-slate-800">
+              <h3 className="text-lg font-black text-slate-800">
                 {formatCurrencyUsd(activeStats.todaySales)}
               </h3>
-              <p className="mt-1 flex items-center gap-1 text-xs text-emerald-600 font-bold">
+              <p className="mt-1 flex items-center gap-1 text-[10px] text-emerald-600 font-bold">
                 <TrendingUp size={12} />
                 <span>+12.5% vs ayer</span>
               </p>
@@ -104,60 +119,60 @@ export default function DashboardPage() {
           </div>
 
           {/* Card 2: Ventas Semana */}
-          <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+          <div className="flex flex-col justify-between rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
                 Ventas Semana
               </span>
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
-                <CalendarDays size={20} />
+              <div className="flex items-center justify-center rounded-xl bg-violet-50 text-violet-600">
+                <CalendarDays size={16} />
               </div>
             </div>
             <div className="mt-4">
-              <h3 className="text-2xl font-black text-slate-800">
+              <h3 className="text-lg font-black text-slate-800">
                 {formatCurrencyUsd(activeStats.weekSales)}
               </h3>
-              <p className="mt-1 text-xs text-slate-400 font-semibold">
-                Últimos 7 días corridos
+              <p className="mt-1 text-[10px] text-slate-400 font-semibold">
+                {getCurrentWeekRange()}
               </p>
             </div>
           </div>
 
           {/* Card 3: Ventas Mes */}
-          <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+          <div className="flex flex-col justify-between rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
                 Ventas Mes
               </span>
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50 text-sky-600">
-                <CalendarCheck size={20} />
+              <div className="flex items-center justify-center rounded-xl bg-sky-50 text-sky-600">
+                <CalendarCheck size={16} />
               </div>
             </div>
             <div className="mt-4">
-              <h3 className="text-2xl font-black text-slate-800">
+              <h3 className="text-lg font-black text-slate-800">
                 {formatCurrencyUsd(activeStats.monthSales)}
               </h3>
-              <p className="mt-1 text-xs text-slate-400 font-semibold">
+              <p className="mt-1 text-[10px] text-slate-400 font-semibold">
                 Últimos 30 días corridos
               </p>
             </div>
           </div>
 
           {/* Card 4: Pendiente por Cobrar */}
-          <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm border-l-4 border-l-amber-500">
+          <div className="flex flex-col justify-between rounded-2xl border border-slate-100 bg-white p-4 shadow-sm border-l-4 border-l-amber-500">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
                 Pendiente por Cobrar
               </span>
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
-                <Coins size={20} />
+              <div className="flex items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                <Coins size={16} />
               </div>
             </div>
             <div className="mt-4">
-              <h3 className="text-2xl font-black text-amber-600">
+              <h3 className="text-lg font-black text-amber-600">
                 {formatCurrencyUsd(activeStats.pendingAmount)}
               </h3>
-              <p className="mt-1 text-xs text-slate-400 font-semibold">
+              <p className="mt-1 text-[10px] text-slate-400 font-semibold">
                 Suma de deudas activas
               </p>
             </div>
