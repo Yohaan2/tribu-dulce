@@ -4,7 +4,7 @@ import { CreateClientInput, UpdateClientInput } from '@/schemas/client.schema';
 import { CreateProductInput, UpdateProductInput } from '@/schemas/product.schema';
 import { CreateSaleInput } from '@/schemas/sale.schema';
 import { CreatePaymentInput } from '@/schemas/payment.schema';
-import { CreatePredictionItemInput } from '@/schemas/prediction.schema';
+import { CreatePredictionItemInput, UpdatePredictionItemInput } from '@/schemas/prediction.schema';
 import { DatabaseAdapter } from './interface';
 
 export class SupabaseAdapter implements DatabaseAdapter {
@@ -372,6 +372,16 @@ export class SupabaseAdapter implements DatabaseAdapter {
     return this.getSaleById(id);
   }
 
+  async deleteSale(id: string): Promise<void> {
+    const supabase = await this.getClient();
+    const { error } = await supabase
+      .from('sales')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw new Error(error.message);
+  }
+
   async getDebts(): Promise<Sale[]> {
     const supabase = await this.getClient();
     const { data, error } = await supabase
@@ -688,7 +698,6 @@ export class SupabaseAdapter implements DatabaseAdapter {
 
     if (prodErr || !product) throw new Error('Producto no encontrado');
 
-    const unitPrice = input.unit_price !== undefined ? input.unit_price : Number(product.price_usd);
     let totalCost = input.total_cost !== undefined ? input.total_cost : 0;
     let unitCost = input.unit_cost !== undefined ? input.unit_cost : 0;
 
@@ -735,7 +744,6 @@ export class SupabaseAdapter implements DatabaseAdapter {
         .from('prediction_items')
         .update({
           estimated_quantity: newQty,
-          unit_price: unitPrice,
           total_cost: newTotalCost,
           unit_cost: newUnitCost,
         })
@@ -749,7 +757,6 @@ export class SupabaseAdapter implements DatabaseAdapter {
           prediction_id: activePred.id,
           product_id: input.product_id,
           estimated_quantity: input.estimated_quantity,
-          unit_price: unitPrice,
           total_cost: totalCost,
           unit_cost: unitCost,
           created_at: new Date().toISOString(),
@@ -766,6 +773,37 @@ export class SupabaseAdapter implements DatabaseAdapter {
       .eq('id', activePred.id);
 
     return (await this.getPredictionById(activePred.id))!;
+  }
+
+  async updatePredictionItem(itemId: string, input: UpdatePredictionItemInput): Promise<void> {
+    const supabase = await this.getClient();
+    const { data: item, error: itemError } = await supabase
+      .from('prediction_items')
+      .select('prediction_id, estimated_quantity, total_cost')
+      .eq('id', itemId)
+      .single();
+
+    if (itemError || !item) throw new Error('Item de previsión no encontrado');
+
+    const estimatedQuantity = input.estimated_quantity ?? item.estimated_quantity;
+    const totalCost = input.total_cost ?? (Number(item.total_cost) || 0);
+    const updateData: Record<string, number> = {
+      estimated_quantity: estimatedQuantity,
+      total_cost: totalCost,
+      unit_cost: estimatedQuantity > 0 ? Number((totalCost / estimatedQuantity).toFixed(4)) : 0,
+    };
+
+    const { error } = await supabase
+      .from('prediction_items')
+      .update(updateData)
+      .eq('id', itemId);
+
+    if (error) throw new Error(error.message);
+
+    await supabase
+      .from('predictions')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', item.prediction_id);
   }
 
   async deletePredictionItem(itemId: string): Promise<void> {
@@ -831,7 +869,7 @@ export class SupabaseAdapter implements DatabaseAdapter {
 
       for (const item of p.items || []) {
         const estQty = item.estimated_quantity;
-        const uPrice = Number(item.unit_price);
+        const uPrice = Number(item.product?.price_usd) || 0;
         const uCost = Number(item.unit_cost);
         const totalCost = Number(item.total_cost) || (estQty * uCost);
 

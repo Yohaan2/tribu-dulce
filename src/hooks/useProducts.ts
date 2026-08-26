@@ -59,6 +59,7 @@ export function useProducts() {
     mutationFn: updateProduct,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['predictions', 'active'] });
     },
   });
 

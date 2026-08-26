@@ -40,7 +40,6 @@ export const POST = withAuth(async (request: AuthenticatedRequest) => {
         details: {
           product_id: validation.data.product_id,
           estimated_quantity: validation.data.estimated_quantity,
-          unit_price: validation.data.unit_price,
           unit_cost: validation.data.unit_cost,
         },
       });

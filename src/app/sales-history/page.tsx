@@ -37,7 +37,14 @@ interface EditableItem {
 
 export default function SalesHistoryPage() {
   const router = useRouter();
-  const { sales, isLoading, updateSale, isUpdatingSale } = useSales();
+  const {
+    sales,
+    isLoading,
+    updateSale,
+    isUpdatingSale,
+    deleteSale,
+    isDeletingSale,
+  } = useSales();
   const { products } = useProducts();
   const { exchangeRate } = useExchangeRate();
 
@@ -58,6 +65,10 @@ export default function SalesHistoryPage() {
   // State para modal de confirmación de cambios
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [isClosingConfirm, setIsClosingConfirm] = useState(false);
+
+  // State para modal de confirmación de eliminación
+  const [saleToDelete, setSaleToDelete] = useState<Sale | null>(null);
+  const [isClosingDeleteModal, setIsClosingDeleteModal] = useState(false);
 
   // Filtrado y agrupado de las ventas
   const filteredSales = useMemo(() => {
@@ -250,6 +261,31 @@ export default function SalesHistoryPage() {
     }, 250);
   };
 
+  const handleOpenDeleteModal = (sale: Sale) => {
+    setIsClosingDeleteModal(false);
+    setSaleToDelete(sale);
+  };
+
+  const handleCancelDelete = () => {
+    setIsClosingDeleteModal(true);
+    setTimeout(() => {
+      setSaleToDelete(null);
+      setIsClosingDeleteModal(false);
+    }, 250);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!saleToDelete) return;
+    try {
+      await deleteSale(saleToDelete.id);
+      setViewingSale((current) => current?.id === saleToDelete.id ? null : current);
+      setEditingSale((current) => current?.id === saleToDelete.id ? null : current);
+      handleCancelDelete();
+    } catch (error: any) {
+      alert(`Error al eliminar la venta: ${error.message}`);
+    }
+  };
+
   const handleSaveSale = async () => {
     if (!editingSale) return;
     try {
@@ -415,6 +451,15 @@ export default function SalesHistoryPage() {
                               title="Editar Estado"
                             >
                               <Pencil size={14} className="stroke-[2.5]" />
+                            </button>
+
+                            <button
+                              onClick={() => handleOpenDeleteModal(sale)}
+                              disabled={isDeletingSale || isUpdatingSale}
+                              className="p-2 bg-[#FAF5F3] text-slate-500 hover:text-red-600 rounded-xl transition-all active:scale-90 border border-transparent hover:border-red-100 cursor-pointer disabled:opacity-50"
+                              title="Eliminar Venta"
+                            >
+                              <Trash2 size={14} className="stroke-[2.5]" />
                             </button>
                           </div>
                         </div>
@@ -783,6 +828,94 @@ export default function SalesHistoryPage() {
                     </>
                   ) : (
                     <span>Aceptar</span>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL: Confirmación de Eliminación */}
+        {saleToDelete !== null && (
+          <div 
+            className={`fixed inset-0 z-60 flex items-end sm:items-center justify-center bg-slate-900/40 backdrop-blur-[2px] p-0 sm:p-4 ${
+              isClosingDeleteModal ? 'animate-fade-out' : 'animate-fade-in'
+            }`}
+            onClick={handleCancelDelete}
+          >
+            <div 
+              className={`relative w-full max-w-xs sm:max-w-sm bg-white rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl border border-[#EADED9] ${
+                isClosingDeleteModal ? 'animate-slide-down' : 'animate-slide-up'
+              }`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-12 h-1 bg-[#E0D5D1] rounded-full mx-auto mb-4 sm:hidden"></div>
+
+              {/* Botón Cerrar */}
+              <button 
+                onClick={handleCancelDelete}
+                className="absolute top-5 right-5 p-1.5 rounded-full bg-[#F5F2F0] text-slate-500 hover:text-slate-800 transition-colors"
+              >
+                <X size={14} className="stroke-[2.5]" />
+              </button>
+
+              <div className="text-center space-y-2 mb-5">
+                <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-3 border border-rose-100">
+                  <Trash2 size={22} className="stroke-[2.5]" />
+                </div>
+                <h4 className="text-lg font-black text-[#5C2320]">
+                  ¿Eliminar Venta?
+                </h4>
+                <p className="text-xs font-semibold text-slate-500 leading-relaxed">
+                  Esta acción eliminará de forma permanente la venta y sus registros asociados.
+                </p>
+              </div>
+
+              {/* Resumen de la venta a eliminar */}
+              <div className="border border-rose-100 bg-rose-50/40 p-3.5 rounded-2xl mb-5 space-y-1.5 text-left">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-bold text-slate-500">Cliente:</span>
+                  <span className="font-black text-slate-800 truncate max-w-42.5">
+                    {saleToDelete.client?.name || 'Cliente General'}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-bold text-slate-500">Monto:</span>
+                  <span className="font-black text-rose-700">
+                    {formatCurrencyUsd(saleToDelete.total_usd)} ({formatCurrencyBs(saleToDelete.total_bs)})
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-bold text-slate-500">Fecha:</span>
+                  <span className="font-semibold text-slate-600 text-[11px]">
+                    {new Date(saleToDelete.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}{' '}
+                    • {new Date(saleToDelete.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex gap-2.5">
+                <button
+                  type="button"
+                  onClick={handleCancelDelete}
+                  disabled={isDeletingSale}
+                  className="flex-1 py-3 px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDelete}
+                  disabled={isDeletingSale}
+                  className="flex-1 py-3 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black shadow-md shadow-rose-600/20 transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                >
+                  {isDeletingSale ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      <span>Eliminando...</span>
+                    </>
+                  ) : (
+                    <span>Eliminar</span>
                   )}
                 </button>
               </div>

@@ -22,6 +22,30 @@ export async function GET(request: Request, { params }: RouteParams) {
   }
 }
 
+export const DELETE = withAuth(async (request: AuthenticatedRequest, { params }: RouteParams) => {
+  try {
+    const { id } = await params;
+    await SalesService.delete(id);
+
+    if (request.user) {
+      await AuditService.record({
+        user_id: request.user.id,
+        action: 'SALE_DELETED',
+        entity_type: 'sale',
+        entity_id: id,
+      });
+    }
+
+    return NextResponse.json({ success: true, data: null });
+  } catch (error: any) {
+    console.error('[src/app/api/sales/[id]/route.ts DELETE] status: 500, error:', error);
+    return NextResponse.json(
+      { success: false, error: error.message || 'Error al eliminar venta' },
+      { status: 500 }
+    );
+  }
+});
+
 export const PATCH = withAuth(async (request: AuthenticatedRequest, { params }: RouteParams) => {
   try {
     const { id } = await params;

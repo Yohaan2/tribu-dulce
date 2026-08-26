@@ -5,7 +5,7 @@ import { CreateClientInput, UpdateClientInput } from '@/schemas/client.schema';
 import { CreateProductInput, UpdateProductInput } from '@/schemas/product.schema';
 import { CreateSaleInput } from '@/schemas/sale.schema';
 import { CreatePaymentInput } from '@/schemas/payment.schema';
-import { CreatePredictionItemInput } from '@/schemas/prediction.schema';
+import { CreatePredictionItemInput, UpdatePredictionItemInput } from '@/schemas/prediction.schema';
 import { DatabaseAdapter } from './interface';
 
 // =========================================================================
@@ -246,9 +246,6 @@ export class PredictionItemEntity {
 
   @Column()
   estimated_quantity!: number;
-
-  @Column({ type: 'numeric', precision: 10, scale: 2, default: 0 })
-  unit_price!: number;
 
   @Column({ type: 'numeric', precision: 10, scale: 2, default: 0 })
   total_cost!: number;
@@ -718,6 +715,14 @@ export class PostgresAdapter implements DatabaseAdapter {
     });
   }
 
+  async deleteSale(id: string): Promise<void> {
+    const ds = await getDataSource();
+    const repo = ds.getRepository(SaleEntity);
+    const result = await repo.delete(id);
+
+    if (!result.affected) throw new Error('Venta no encontrada');
+  }
+
   async getDebts(): Promise<Sale[]> {
     const ds = await getDataSource();
     const repo = ds.getRepository(SaleEntity);
@@ -1034,7 +1039,6 @@ export class PostgresAdapter implements DatabaseAdapter {
         prediction_id: item.prediction_id,
         product_id: item.product_id,
         estimated_quantity: item.estimated_quantity,
-        unit_price: toNumber(item.unit_price),
         total_cost: toNumber(item.total_cost) || (toNumber(item.unit_cost) * item.estimated_quantity),
         unit_cost: toNumber(item.unit_cost),
         created_at: item.created_at.toISOString(),
@@ -1091,7 +1095,6 @@ export class PostgresAdapter implements DatabaseAdapter {
     const product = await prodRepo.findOne({ where: { id: input.product_id } });
     if (!product) throw new Error('Producto no encontrado');
 
-    const unitPrice = input.unit_price !== undefined ? input.unit_price : toNumber(product.price_usd);
     let totalCost = input.total_cost !== undefined ? input.total_cost : 0;
     let unitCost = input.unit_cost !== undefined ? input.unit_cost : 0;
 
@@ -1126,7 +1129,6 @@ export class PostgresAdapter implements DatabaseAdapter {
     if (existingItem) {
       console.log('Updating existing item');
       existingItem.estimated_quantity += input.estimated_quantity;
-      existingItem.unit_price = unitPrice;
       existingItem.total_cost = (Number(existingItem.total_cost) || 0) + totalCost;
       existingItem.unit_cost = existingItem.estimated_quantity > 0
         ? Number((existingItem.total_cost / existingItem.estimated_quantity).toFixed(4))
@@ -1138,7 +1140,6 @@ export class PostgresAdapter implements DatabaseAdapter {
         prediction_id: active.id,
         product_id: input.product_id,
         estimated_quantity: input.estimated_quantity,
-        unit_price: unitPrice,
         total_cost: totalCost,
         unit_cost: unitCost,
         created_at: new Date(),
@@ -1152,6 +1153,29 @@ export class PostgresAdapter implements DatabaseAdapter {
 
     const updated = await this.getPredictionById(active.id);
     return updated!;
+  }
+
+  async updatePredictionItem(itemId: string, input: UpdatePredictionItemInput): Promise<void> {
+    const ds = await getDataSource();
+    const itemRepo = ds.getRepository(PredictionItemEntity);
+    const predRepo = ds.getRepository(PredictionEntity);
+    const item = await itemRepo.findOne({ where: { id: itemId } });
+
+    if (!item) throw new Error('Item de previsión no encontrado');
+
+    if (input.estimated_quantity !== undefined) {
+      item.estimated_quantity = input.estimated_quantity;
+    }
+    if (input.total_cost !== undefined) {
+      item.total_cost = input.total_cost;
+    }
+
+    item.unit_cost = item.estimated_quantity > 0
+      ? Number((Number(item.total_cost) / item.estimated_quantity).toFixed(4))
+      : 0;
+
+    await itemRepo.save(item);
+    await predRepo.update(item.prediction_id, { updated_at: new Date() });
   }
 
   async deletePredictionItem(itemId: string): Promise<void> {
@@ -1212,12 +1236,13 @@ export class PostgresAdapter implements DatabaseAdapter {
 
       for (const item of p.items || []) {
         const estQty = item.estimated_quantity;
-        const uPrice = toNumber(item.unit_price);
+        const uPrice = item.product ? toNumber(item.product.price_usd) : 0;
         const uCost = toNumber(item.unit_cost);
+        const totalCost = toNumber(item.total_cost) || (estQty * uCost);
 
         totalEstQty += estQty;
         totalEstSales += estQty * uPrice;
-        totalEstProfit += estQty * (uPrice - uCost);
+        totalEstProfit += estQty * uPrice - totalCost;
 
         // Calcular ventas reales para este producto
         let prodSoldQty = 0;
@@ -1234,7 +1259,7 @@ export class PostgresAdapter implements DatabaseAdapter {
 
         totalSoldQty += prodSoldQty;
         totalRealSales += prodRealSales;
-        totalRealProfit += prodRealSales - (prodSoldQty * uCost);
+        totalRealProfit += prodRealSales - totalCost;
       }
 
       historyItems.push({

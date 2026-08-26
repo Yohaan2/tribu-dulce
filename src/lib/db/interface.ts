@@ -3,7 +3,7 @@ import { CreateClientInput, UpdateClientInput } from '@/schemas/client.schema';
 import { CreateProductInput, UpdateProductInput } from '@/schemas/product.schema';
 import { CreateSaleInput } from '@/schemas/sale.schema';
 import { CreatePaymentInput } from '@/schemas/payment.schema';
-import { CreatePredictionItemInput } from '@/schemas/prediction.schema';
+import { CreatePredictionItemInput, UpdatePredictionItemInput } from '@/schemas/prediction.schema';
 
 export interface DatabaseAdapter {
   // --- CLIENTES ---
@@ -34,6 +34,7 @@ export interface DatabaseAdapter {
       items?: Array<{ product_id: string; quantity: number; unit_price: number }>;
     }
   ): Promise<Sale>;
+  deleteSale(id: string): Promise<void>;
   getDebts(): Promise<Sale[]>;
   getClientDebts(clientId: string): Promise<any[]>;
 
@@ -56,6 +57,7 @@ export interface DatabaseAdapter {
   getActivePrediction(): Promise<Prediction | null>;
   getPredictionById(id: string): Promise<Prediction | null>;
   createOrAddItemToPrediction(input: CreatePredictionItemInput): Promise<Prediction>;
+  updatePredictionItem(itemId: string, input: UpdatePredictionItemInput): Promise<void>;
   deletePredictionItem(itemId: string): Promise<void>;
   resetPrediction(notes?: string): Promise<Prediction | null>;
   getPredictionHistory(): Promise<PredictionHistoryItem[]>;

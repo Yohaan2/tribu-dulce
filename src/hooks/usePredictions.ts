@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PredictionSummary, PredictionHistoryItem } from '@/types';
-import { CreatePredictionItemInput } from '@/schemas/prediction.schema';
+import { CreatePredictionItemInput, UpdatePredictionItemInput } from '@/schemas/prediction.schema';
 import { authFetch } from '@/lib/api';
 
 async function fetchActivePrediction(): Promise<PredictionSummary | null> {
@@ -13,6 +13,17 @@ async function fetchActivePrediction(): Promise<PredictionSummary | null> {
 async function addPredictionItem(input: CreatePredictionItemInput): Promise<PredictionSummary> {
   const res = await authFetch('/api/predictions', {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error);
+  return json.data;
+}
+
+async function updatePredictionItem(itemId: string, input: UpdatePredictionItemInput): Promise<PredictionSummary> {
+  const res = await authFetch(`/api/predictions/items/${itemId}`, {
+    method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   });
@@ -78,6 +89,15 @@ export function usePredictions() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: ({ itemId, input }: { itemId: string; input: UpdatePredictionItemInput }) =>
+      updatePredictionItem(itemId, input),
+    onSuccess: (updatedSummary) => {
+      queryClient.setQueryData(['predictions', 'active'], updatedSummary);
+      queryClient.invalidateQueries({ queryKey: ['predictions', 'history'] });
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: deletePredictionItem,
     onSuccess: () => {
@@ -106,6 +126,9 @@ export function usePredictions() {
 
     addPredictionItem: addMutation.mutateAsync,
     isAdding: addMutation.isPending,
+
+    updatePredictionItem: updateMutation.mutateAsync,
+    isUpdating: updateMutation.isPending,
 
     deletePredictionItem: deleteMutation.mutateAsync,
     isDeleting: deleteMutation.isPending,

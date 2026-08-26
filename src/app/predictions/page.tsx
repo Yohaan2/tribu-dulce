@@ -11,6 +11,8 @@ import {
   Target,
   Plus,
   Trash2,
+  Pencil,
+  Save,
   RotateCcw,
   History,
   Calendar,
@@ -31,7 +33,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import SelectInput, { SelectOption } from '@/components/ui/select-input';
-import { PredictionSummary, PredictionHistoryItem } from '@/types';
+import { PredictionSummary, PredictionHistoryItem, PredictionItemComparison } from '@/types';
 
 export default function PredictionsPage() {
   const {
@@ -42,6 +44,8 @@ export default function PredictionsPage() {
     isHistoryLoading,
     addPredictionItem,
     isAdding,
+    updatePredictionItem,
+    isUpdating,
     deletePredictionItem,
     isDeleting,
     resetPrediction,
@@ -57,10 +61,12 @@ export default function PredictionsPage() {
   // Form State
   const [selectedProductId, setSelectedProductId] = useState('');
   const [estimatedQuantity, setEstimatedQuantity] = useState('');
-  const [unitPrice, setUnitPrice] = useState('');
   const [totalCost, setTotalCost] = useState('');
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editingQuantity, setEditingQuantity] = useState('');
+  const [editingTotalCost, setEditingTotalCost] = useState('');
 
   // Reset Modal State
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
@@ -82,23 +88,14 @@ export default function PredictionsPage() {
     ];
   }, [products]);
 
-  // Al seleccionar producto, auto-llenar el precio
   const handleProductSelect = (productId: string) => {
     setSelectedProductId(productId);
     setFormError('');
-    if (!productId) {
-      setUnitPrice('');
-      return;
-    }
-    const prod = products.find((p) => p.id === productId);
-    if (prod) {
-      setUnitPrice(Number(prod.price_usd).toFixed(2));
-    }
   };
 
   // Cálculo en tiempo real en el formulario
   const parsedQty = parseInt(estimatedQuantity, 10) || 0;
-  const parsedPrice = parseFloat(unitPrice) || 0;
+  const parsedPrice = Number(products.find((p) => p.id === selectedProductId)?.price_usd) || 0;
   const parsedTotalCost = parseFloat(totalCost) || 0;
   const calculatedUnitCost = parsedQty > 0 ? parsedTotalCost / parsedQty : 0;
   const previewSales = parsedQty * parsedPrice;
@@ -120,11 +117,6 @@ export default function PredictionsPage() {
       return;
     }
 
-    if (parsedPrice < 0) {
-      setFormError('El precio unitario no puede ser negativo.');
-      return;
-    }
-
     if (parsedTotalCost < 0) {
       setFormError('El costo total no puede ser negativo.');
       return;
@@ -134,7 +126,6 @@ export default function PredictionsPage() {
       await addPredictionItem({
         product_id: selectedProductId,
         estimated_quantity: parsedQty,
-        unit_price: parsedPrice,
         total_cost: parsedTotalCost,
         unit_cost: calculatedUnitCost,
       });
@@ -142,7 +133,6 @@ export default function PredictionsPage() {
       setFormSuccess('¡Producto agregado a la previsión correctamente!');
       setSelectedProductId('');
       setEstimatedQuantity('');
-      setUnitPrice('');
       setTotalCost('');
       setTimeout(() => setFormSuccess(''), 4000);
     } catch (err: any) {
@@ -150,6 +140,51 @@ export default function PredictionsPage() {
     }
   };
 
+
+  const handleEditItem = (item: PredictionItemComparison) => {
+    setEditingItemId(item.id);
+    setEditingQuantity(String(item.estimated_quantity));
+    setEditingTotalCost(String(item.total_cost));
+    setFormError('');
+    setFormSuccess('');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingItemId(null);
+    setEditingQuantity('');
+    setEditingTotalCost('');
+  };
+
+  const handleSaveItem = async (itemId: string) => {
+    const quantity = Number(editingQuantity);
+    const cost = Number(editingTotalCost);
+
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      setFormError('La cantidad estimada debe ser un entero mayor a 0.');
+      return;
+    }
+
+    if (!Number.isFinite(cost) || cost < 0) {
+      setFormError('El costo total debe ser un número mayor o igual a 0.');
+      return;
+    }
+
+    try {
+      await updatePredictionItem({
+        itemId,
+        input: {
+          estimated_quantity: quantity,
+          total_cost: cost,
+          unit_cost: quantity > 0 ? cost / quantity : 0,
+        },
+      });
+      handleCancelEdit();
+      setFormSuccess('Item de previsión actualizado correctamente.');
+      setTimeout(() => setFormSuccess(''), 4000);
+    } catch (err: any) {
+      setFormError(err.message || 'Error al actualizar el item de previsión.');
+    }
+  };
 
   // Manejar reinicio de previsión
   const handleConfirmReset = async () => {
@@ -332,14 +367,14 @@ export default function PredictionsPage() {
                       placeholder="Ej: 500"
                       value={estimatedQuantity}
                       onChange={(e) => setEstimatedQuantity(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:border-pink-500 focus:outline-none focus:ring-2 focus:ring-pink-500/20"
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:border-slate-300 focus:outline-none"
                     />
                   </div>
 
                   {/* Precio Unitario */}
                   <div>
                     <label className="mb-1 block text-xs font-bold text-slate-700">
-                      Precio Unitario ($ USD)
+                      Precio actual del producto ($ USD)
                     </label>
                     <div className="relative">
                       <span className="absolute left-3 top-2.5 text-xs font-semibold text-slate-400">
@@ -350,9 +385,10 @@ export default function PredictionsPage() {
                         min="0"
                         step="0.01"
                         placeholder="0.00"
-                        value={unitPrice}
-                        onChange={(e) => setUnitPrice(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 pl-7 pr-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:border-pink-500 focus:outline-none focus:ring-2 focus:ring-pink-500/20"
+                        value={parsedPrice.toFixed(2)}
+                        readOnly
+                        disabled
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-7 pr-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:border-slate-300 focus:outline-none"
                       />
                     </div>
                   </div>
@@ -373,7 +409,7 @@ export default function PredictionsPage() {
                         placeholder="0.00"
                         value={totalCost}
                         onChange={(e) => setTotalCost(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 pl-7 pr-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:border-pink-500 focus:outline-none focus:ring-2 focus:ring-pink-500/20"
+                        className="w-full rounded-xl border border-slate-200 pl-7 pr-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:border-slate-300 focus:outline-none"
                       />
                     </div>
                     {parsedQty > 0 && parsedTotalCost > 0 && (
@@ -634,19 +670,43 @@ export default function PredictionsPage() {
                             <Cookie size={16} className="text-pink-500 shrink-0" />
                             <span>{item.product_name}</span>
                           </td>
-                          <td className="px-3 py-3.5 text-right font-semibold text-slate-700">
-                            {item.estimated_quantity} uds
+                          <td className="px-3 py-3.5 text-right text-slate-700">
+                            {editingItemId === item.id ? (
+                              <input
+                                type="number"
+                                min="1"
+                                step="1"
+                                value={editingQuantity}
+                                onChange={(e) => setEditingQuantity(e.target.value)}
+                                className="w-24 rounded-lg border border-pink-300 px-2 py-1 text-right text-xs focus:border-pink-500 focus:outline-none focus:ring-2 focus:ring-pink-500/20"
+                              />
+                            ) : (
+                              <span className="font-semibold">{item.estimated_quantity} uds</span>
+                            )}
                           </td>
                           <td className="px-3 py-3.5 text-right text-slate-600">
                             ${item.unit_price.toFixed(2)}
                           </td>
                           <td className="px-3 py-3.5 text-right">
-                            <span className="font-semibold text-slate-700">
-                              ${item.total_cost.toFixed(2)}
-                            </span>
-                            <span className="ml-1 text-[11px] text-slate-400">
-                              (${item.unit_cost.toFixed(2)}/ud)
-                            </span>
+                            {editingItemId === item.id ? (
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={editingTotalCost}
+                                onChange={(e) => setEditingTotalCost(e.target.value)}
+                                className="w-24 rounded-lg border border-pink-300 px-2 py-1 text-right text-xs focus:border-pink-500 focus:outline-none focus:ring-2 focus:ring-pink-500/20"
+                              />
+                            ) : (
+                              <>
+                                <span className="font-semibold text-slate-700">
+                                  ${item.total_cost.toFixed(2)}
+                                </span>
+                                <span className="ml-1 text-[11px] text-slate-400">
+                                  (${item.unit_cost.toFixed(2)}/ud)
+                                </span>
+                              </>
+                            )}
                           </td>
                           <td className="px-3 py-3.5 text-right font-bold text-slate-800">
                             ${item.estimated_sales.toFixed(2)}
@@ -655,18 +715,49 @@ export default function PredictionsPage() {
                             ${item.estimated_profit.toFixed(2)}
                           </td>
                           <td className="px-3 py-3.5 text-center">
-                            <button
-                              onClick={() => {
-                                if (confirm(`¿Eliminar ${item.product_name} de la previsión?`)) {
-                                  deletePredictionItem(item.id);
-                                }
-                              }}
-                              disabled={isDeleting}
-                              title="Eliminar de la previsión"
-                              className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
-                            >
-                              <Trash2 size={15} />
-                            </button>
+                            {editingItemId === item.id ? (
+                              <div className="flex justify-center gap-1">
+                                <button
+                                  onClick={() => handleSaveItem(item.id)}
+                                  disabled={isUpdating}
+                                  title="Guardar cambios"
+                                  className="rounded-lg p-1.5 text-emerald-600 hover:bg-emerald-50 transition-colors disabled:opacity-50"
+                                >
+                                  {isUpdating ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+                                </button>
+                                <button
+                                  onClick={handleCancelEdit}
+                                  disabled={isUpdating}
+                                  title="Cancelar edición"
+                                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+                                >
+                                  <X size={15} />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex justify-center gap-1">
+                                <button
+                                  onClick={() => handleEditItem(item)}
+                                  disabled={isUpdating || isDeleting}
+                                  title="Editar previsión"
+                                  className="rounded-lg p-1.5 text-slate-400 hover:bg-pink-50 hover:text-pink-600 transition-colors"
+                                >
+                                  <Pencil size={15} />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    if (confirm(`¿Eliminar ${item.product_name} de la previsión?`)) {
+                                      deletePredictionItem(item.id);
+                                    }
+                                  }}
+                                  disabled={isDeleting || isUpdating}
+                                  title="Eliminar de la previsión"
+                                  className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+                                >
+                                  <Trash2 size={15} />
+                                </button>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       ))

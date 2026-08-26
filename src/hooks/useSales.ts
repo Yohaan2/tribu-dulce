@@ -21,6 +21,14 @@ async function createSale(input: CreateSaleInput): Promise<Sale> {
   return json.data;
 }
 
+async function deleteSale(id: string): Promise<void> {
+  const res = await authFetch(`/api/sales/${id}`, {
+    method: 'DELETE',
+  });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error);
+}
+
 async function updateSale({
   id,
   status,
@@ -64,6 +72,18 @@ export function useSales() {
       queryClient.invalidateQueries({ queryKey: ['sales'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['debts'] });
+      queryClient.invalidateQueries({ queryKey: ['predictions', 'active'] });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteSale,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sales'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['debts'] });
+      queryClient.invalidateQueries({ queryKey: ['predictions', 'active'] });
+      queryClient.invalidateQueries({ queryKey: ['predictions', 'history'] });
     },
   });
 
@@ -77,5 +97,7 @@ export function useSales() {
     isUpdatingStatus: updateSaleMutation.isPending,
     updateSale: updateSaleMutation.mutateAsync,
     isUpdatingSale: updateSaleMutation.isPending,
+    deleteSale: deleteMutation.mutateAsync,
+    isDeletingSale: deleteMutation.isPending,
   };
 }

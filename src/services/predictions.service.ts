@@ -5,7 +5,7 @@ import {
   PredictionItemComparison,
   PredictionHistoryItem,
 } from '@/types';
-import { CreatePredictionItemInput } from '@/schemas/prediction.schema';
+import { CreatePredictionItemInput, UpdatePredictionItemInput } from '@/schemas/prediction.schema';
 
 export class PredictionsService {
   /**
@@ -22,7 +22,7 @@ export class PredictionsService {
 
     const itemsComparison: PredictionItemComparison[] = (prediction.items || []).map((item) => {
       const estQty = item.estimated_quantity || 0;
-      const unitPrice = Number(item.unit_price) || 0;
+      const unitPrice = Number(item.product?.price_usd) || 0;
       let unitCost = Number(item.unit_cost) || 0;
       let totalCost = Number(item.total_cost) || 0;
 
@@ -141,6 +141,13 @@ export class PredictionsService {
    */
   static async addItem(input: CreatePredictionItemInput): Promise<Prediction> {
     return await db.createOrAddItemToPrediction(input);
+  }
+
+  /**
+   * Actualiza un item de la previsión activa
+   */
+  static async updateItem(itemId: string, input: UpdatePredictionItemInput): Promise<void> {
+    await db.updatePredictionItem(itemId, input);
   }
 
   /**

@@ -113,7 +113,6 @@ export interface PredictionItem {
   prediction_id: string;
   product_id: string;
   estimated_quantity: number;
-  unit_price: number;
   total_cost: number;
   unit_cost: number;
   created_at: string;

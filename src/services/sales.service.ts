@@ -28,4 +28,8 @@ export class SalesService {
   ): Promise<Sale> {
     return await db.updateSale(id, input);
   }
+
+  static async delete(id: string): Promise<void> {
+    await db.deleteSale(id);
+  }
 }
