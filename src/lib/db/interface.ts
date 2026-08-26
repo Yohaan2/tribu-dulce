@@ -1,8 +1,9 @@
-import { Client, Product, Sale, Payment, ExchangeRate, DashboardStats, SaleStatus, AuditLog, CreateAuditLogInput } from '@/types';
+import { Client, Product, Sale, Payment, ExchangeRate, DashboardStats, SaleStatus, AuditLog, CreateAuditLogInput, Prediction, PredictionSummary, PredictionHistoryItem } from '@/types';
 import { CreateClientInput, UpdateClientInput } from '@/schemas/client.schema';
 import { CreateProductInput, UpdateProductInput } from '@/schemas/product.schema';
 import { CreateSaleInput } from '@/schemas/sale.schema';
 import { CreatePaymentInput } from '@/schemas/payment.schema';
+import { CreatePredictionItemInput } from '@/schemas/prediction.schema';
 
 export interface DatabaseAdapter {
   // --- CLIENTES ---
@@ -22,6 +23,7 @@ export interface DatabaseAdapter {
 
   // --- VENTAS ---
   getSales(): Promise<Sale[]>;
+  getSalesBetweenDates(startDate: Date, endDate?: Date): Promise<Sale[]>;
   getSaleById(id: string): Promise<Sale>;
   createSale(input: CreateSaleInput): Promise<Sale>;
   updateSaleStatus(id: string, status: SaleStatus): Promise<Sale>;
@@ -49,4 +51,13 @@ export interface DatabaseAdapter {
   // --- AUDITORIA ---
   getAuditLogs(page?: number, limit?: number, startDate?: string, endDate?: string): Promise<{ data: AuditLog[]; total: number }>;
   createAuditLog(input: CreateAuditLogInput): Promise<AuditLog>;
+
+  // --- PREVISIONES ---
+  getActivePrediction(): Promise<Prediction | null>;
+  getPredictionById(id: string): Promise<Prediction | null>;
+  createOrAddItemToPrediction(input: CreatePredictionItemInput): Promise<Prediction>;
+  deletePredictionItem(itemId: string): Promise<void>;
+  resetPrediction(notes?: string): Promise<Prediction | null>;
+  getPredictionHistory(): Promise<PredictionHistoryItem[]>;
 }
+

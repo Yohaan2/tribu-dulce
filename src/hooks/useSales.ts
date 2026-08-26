@@ -54,6 +54,7 @@ export function useSales() {
       queryClient.invalidateQueries({ queryKey: ['sales'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['debts'] });
+      queryClient.invalidateQueries({ queryKey: ['predictions', 'active'] });
     },
   });
 

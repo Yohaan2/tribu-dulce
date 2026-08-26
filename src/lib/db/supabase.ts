@@ -1,9 +1,10 @@
 import { createServerClient } from '@/lib/supabase/server';
-import { Client, Product, Sale, Payment, ExchangeRate, DashboardStats, SaleStatus, AuditLog, CreateAuditLogInput } from '@/types';
+import { Client, Product, Sale, Payment, ExchangeRate, DashboardStats, SaleStatus, AuditLog, CreateAuditLogInput, Prediction, PredictionStatus, PredictionItem, PredictionHistoryItem } from '@/types';
 import { CreateClientInput, UpdateClientInput } from '@/schemas/client.schema';
 import { CreateProductInput, UpdateProductInput } from '@/schemas/product.schema';
 import { CreateSaleInput } from '@/schemas/sale.schema';
 import { CreatePaymentInput } from '@/schemas/payment.schema';
+import { CreatePredictionItemInput } from '@/schemas/prediction.schema';
 import { DatabaseAdapter } from './interface';
 
 export class SupabaseAdapter implements DatabaseAdapter {
@@ -184,6 +185,33 @@ export class SupabaseAdapter implements DatabaseAdapter {
     if (error) throw new Error(error.message);
     return data || [];
   }
+
+  async getSalesBetweenDates(startDate: Date, endDate?: Date): Promise<Sale[]> {
+    const supabase = await this.getClient();
+    let query = supabase
+      .from('sales')
+      .select(`
+        *,
+        client:clients(*),
+        items:sale_items(
+          *,
+          product:products(*)
+        ),
+        payments:payments(*),
+        creator_profile:profiles(id, name, role)
+      `)
+      .gte('created_at', startDate.toISOString())
+      .order('created_at', { ascending: false });
+
+    if (endDate) {
+      query = query.lte('created_at', endDate.toISOString());
+    }
+
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    return data || [];
+  }
+
 
   async getSaleById(id: string): Promise<Sale> {
     const supabase = await this.getClient();
@@ -609,4 +637,242 @@ export class SupabaseAdapter implements DatabaseAdapter {
     if (viewError) throw new Error(viewError.message);
     return viewData as AuditLog;
   }
+
+  // --- PREVISIONES ---
+  async getActivePrediction(): Promise<Prediction | null> {
+    const supabase = await this.getClient();
+    const { data, error } = await supabase
+      .from('predictions')
+      .select(`
+        *,
+        items:prediction_items(
+          *,
+          product:products(*)
+        )
+      `)
+      .eq('status', 'ACTIVE')
+      .order('created_at', { ascending: false })
+      .maybeSingle();
+
+    if (error) throw new Error(error.message);
+    return data as Prediction | null;
+  }
+
+  async getPredictionById(id: string): Promise<Prediction | null> {
+    const supabase = await this.getClient();
+    const { data, error } = await supabase
+      .from('predictions')
+      .select(`
+        *,
+        items:prediction_items(
+          *,
+          product:products(*)
+        )
+      `)
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) throw new Error(error.message);
+    return data as Prediction | null;
+  }
+
+  async createOrAddItemToPrediction(input: CreatePredictionItemInput): Promise<Prediction> {
+    const supabase = await this.getClient();
+
+    // 1. Obtener producto para precio si no viene
+    const { data: product, error: prodErr } = await supabase
+      .from('products')
+      .select('*')
+      .eq('id', input.product_id)
+      .single();
+
+    if (prodErr || !product) throw new Error('Producto no encontrado');
+
+    const unitPrice = input.unit_price !== undefined ? input.unit_price : Number(product.price_usd);
+    let totalCost = input.total_cost !== undefined ? input.total_cost : 0;
+    let unitCost = input.unit_cost !== undefined ? input.unit_cost : 0;
+
+    if (totalCost > 0 && input.estimated_quantity > 0 && unitCost === 0) {
+      unitCost = Number((totalCost / input.estimated_quantity).toFixed(4));
+    } else if (unitCost > 0 && totalCost === 0) {
+      totalCost = Number((unitCost * input.estimated_quantity).toFixed(2));
+    }
+
+    // 2. Buscar o crear previsión activa
+    let { data: activePred, error: activeErr } = await supabase
+      .from('predictions')
+      .select('*, items:prediction_items(*)')
+      .eq('status', 'ACTIVE')
+      .order('created_at', { ascending: false })
+      .maybeSingle();
+
+    if (activeErr) throw new Error(activeErr.message);
+
+    if (!activePred) {
+      const { data: newPred, error: createErr } = await supabase
+        .from('predictions')
+        .insert({
+          status: 'ACTIVE',
+          started_at: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (createErr) throw new Error(createErr.message);
+      activePred = { ...newPred, items: [] };
+    }
+
+    // 3. Revisar si el item ya existe
+    const existingItem = activePred.items?.find((i: any) => i.product_id === input.product_id);
+    if (existingItem) {
+      const newQty = existingItem.estimated_quantity + input.estimated_quantity;
+      const newTotalCost = (Number(existingItem.total_cost) || 0) + totalCost;
+      const newUnitCost = newQty > 0 ? Number((newTotalCost / newQty).toFixed(4)) : unitCost;
+
+      const { error: updateItemErr } = await supabase
+        .from('prediction_items')
+        .update({
+          estimated_quantity: newQty,
+          unit_price: unitPrice,
+          total_cost: newTotalCost,
+          unit_cost: newUnitCost,
+        })
+        .eq('id', existingItem.id);
+
+      if (updateItemErr) throw new Error(updateItemErr.message);
+    } else {
+      const { error: insertItemErr } = await supabase
+        .from('prediction_items')
+        .insert({
+          prediction_id: activePred.id,
+          product_id: input.product_id,
+          estimated_quantity: input.estimated_quantity,
+          unit_price: unitPrice,
+          total_cost: totalCost,
+          unit_cost: unitCost,
+          created_at: new Date().toISOString(),
+        });
+
+      if (insertItemErr) throw new Error(insertItemErr.message);
+    }
+
+
+    // Actualizar updated_at
+    await supabase
+      .from('predictions')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', activePred.id);
+
+    return (await this.getPredictionById(activePred.id))!;
+  }
+
+  async deletePredictionItem(itemId: string): Promise<void> {
+    const supabase = await this.getClient();
+    const { error } = await supabase
+      .from('prediction_items')
+      .delete()
+      .eq('id', itemId);
+
+    if (error) throw new Error(error.message);
+  }
+
+  async resetPrediction(notes?: string): Promise<Prediction | null> {
+    const supabase = await this.getClient();
+    const active = await this.getActivePrediction();
+    if (!active) return null;
+
+    const { data, error } = await supabase
+      .from('predictions')
+      .update({
+        status: 'ARCHIVED',
+        finished_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        notes: notes || null,
+      })
+      .eq('id', active.id)
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return data as Prediction;
+  }
+
+  async getPredictionHistory(): Promise<PredictionHistoryItem[]> {
+    const supabase = await this.getClient();
+    const { data: predictions, error } = await supabase
+      .from('predictions')
+      .select(`
+        *,
+        items:prediction_items(
+          *,
+          product:products(*)
+        )
+      `)
+      .order('started_at', { ascending: false });
+
+    if (error) throw new Error(error.message);
+
+    const historyItems: PredictionHistoryItem[] = [];
+
+    for (const p of predictions || []) {
+      const startDate = new Date(p.started_at);
+      const endDate = p.finished_at ? new Date(p.finished_at) : new Date();
+
+      const sales = await this.getSalesBetweenDates(startDate, endDate);
+
+      let totalEstQty = 0;
+      let totalEstSales = 0;
+      let totalEstProfit = 0;
+      let totalSoldQty = 0;
+      let totalRealSales = 0;
+      let totalRealProfit = 0;
+
+      for (const item of p.items || []) {
+        const estQty = item.estimated_quantity;
+        const uPrice = Number(item.unit_price);
+        const uCost = Number(item.unit_cost);
+        const totalCost = Number(item.total_cost) || (estQty * uCost);
+
+        totalEstQty += estQty;
+        totalEstSales += estQty * uPrice;
+        totalEstProfit += estQty * uPrice - totalCost;
+
+        let prodSoldQty = 0;
+        let prodRealSales = 0;
+
+        for (const sale of sales) {
+          for (const sItem of sale.items || []) {
+            if (sItem.product_id === item.product_id) {
+              prodSoldQty += sItem.quantity;
+              prodRealSales += Number(sItem.subtotal);
+            }
+          }
+        }
+
+        totalSoldQty += prodSoldQty;
+        totalRealSales += prodRealSales;
+        totalRealProfit += prodRealSales - totalCost;
+      }
+
+      historyItems.push({
+        id: p.id,
+        status: p.status,
+        started_at: p.started_at,
+        finished_at: p.finished_at,
+        created_at: p.created_at,
+        items_count: p.items?.length || 0,
+        total_estimated_quantity: totalEstQty,
+        total_sold_quantity: totalSoldQty,
+        total_estimated_sales: totalEstSales,
+        total_real_sales: totalRealSales,
+        total_estimated_profit: totalEstProfit,
+        total_real_profit: totalRealProfit,
+      });
+    }
+
+    return historyItems;
+  }
 }
+

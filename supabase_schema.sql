@@ -207,3 +207,49 @@ SELECT
 FROM public.audit_logs al
 JOIN public.profiles p ON p.id = al.user_id
 ORDER BY al.created_at DESC;
+
+-- =========================================================================
+-- 10. TABLA: predictions
+-- =========================================================================
+CREATE TABLE IF NOT EXISTS public.predictions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    status TEXT NOT NULL CONSTRAINT chk_prediction_status CHECK (status IN ('ACTIVE', 'ARCHIVED')) DEFAULT 'ACTIVE',
+    started_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    finished_at TIMESTAMP WITH TIME ZONE,
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE public.predictions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Permitir todo a usuarios autenticados en predictions"
+    ON public.predictions FOR ALL
+    USING (auth.role() = 'authenticated');
+
+CREATE INDEX IF NOT EXISTS idx_predictions_status ON public.predictions(status);
+
+-- =========================================================================
+-- 11. TABLA: prediction_items
+-- =========================================================================
+CREATE TABLE IF NOT EXISTS public.prediction_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    prediction_id UUID NOT NULL REFERENCES public.predictions(id) ON DELETE CASCADE,
+    product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE RESTRICT,
+    estimated_quantity INTEGER NOT NULL CONSTRAINT chk_pred_item_quantity CHECK (estimated_quantity > 0),
+    unit_price NUMERIC(10, 2) NOT NULL DEFAULT 0 CONSTRAINT chk_pred_item_price CHECK (unit_price >= 0),
+    total_cost NUMERIC(10, 2) NOT NULL DEFAULT 0 CONSTRAINT chk_pred_item_total_cost CHECK (total_cost >= 0),
+    unit_cost NUMERIC(10, 2) NOT NULL DEFAULT 0 CONSTRAINT chk_pred_item_cost CHECK (unit_cost >= 0),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+
+ALTER TABLE public.prediction_items ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Permitir todo a usuarios autenticados en prediction_items"
+    ON public.prediction_items FOR ALL
+    USING (auth.role() = 'authenticated');
+
+CREATE INDEX IF NOT EXISTS idx_prediction_items_prediction_id ON public.prediction_items(prediction_id);
+CREATE INDEX IF NOT EXISTS idx_prediction_items_product_id ON public.prediction_items(product_id);
+

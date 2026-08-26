@@ -17,12 +17,14 @@ export function Breadcrumbs() {
     products: 'Productos',
     sales: 'Ventas',
     'sales-history': 'Historial de Ventas',
+    predictions: 'Previsiones',
     debts: 'Deudas',
     calendar: 'Calendario',
     settings: 'Configuración',
     login: 'Login',
     audit: 'Auditoría',
   };
+
 
   return (
     <nav className="flex items-center space-x-1.5 text-xs font-medium text-slate-500 py-3">

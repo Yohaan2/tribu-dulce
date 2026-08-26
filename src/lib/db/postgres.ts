@@ -1,10 +1,11 @@
 import 'reflect-metadata';
 import { DataSource, Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn, ILike, Between, MoreThanOrEqual, LessThanOrEqual } from 'typeorm';
-import { Client, Product, Sale, Payment, ExchangeRate, DashboardStats, SaleStatus, UserProfile, AuditLog, CreateAuditLogInput } from '@/types';
+import { Client, Product, Sale, Payment, ExchangeRate, DashboardStats, SaleStatus, UserProfile, AuditLog, CreateAuditLogInput, Prediction, PredictionStatus, PredictionItem, PredictionHistoryItem } from '@/types';
 import { CreateClientInput, UpdateClientInput } from '@/schemas/client.schema';
 import { CreateProductInput, UpdateProductInput } from '@/schemas/product.schema';
 import { CreateSaleInput } from '@/schemas/sale.schema';
 import { CreatePaymentInput } from '@/schemas/payment.schema';
+import { CreatePredictionItemInput } from '@/schemas/prediction.schema';
 import { DatabaseAdapter } from './interface';
 
 // =========================================================================
@@ -197,6 +198,69 @@ export class AuditLogEntity {
   created_at!: Date;
 }
 
+@Entity({ name: 'predictions' })
+export class PredictionEntity {
+  @PrimaryGeneratedColumn('uuid')
+  id!: string;
+
+  @Column({ default: 'ACTIVE' })
+  status!: 'ACTIVE' | 'ARCHIVED';
+
+  @Column({ type: 'timestamp with time zone', default: () => 'CURRENT_TIMESTAMP' })
+  started_at!: Date;
+
+  @Column({ type: 'timestamp with time zone', nullable: true })
+  finished_at!: Date | null;
+
+  @Column({ type: 'text', nullable: true })
+  notes!: string | null;
+
+  @Column({ type: 'timestamp with time zone', default: () => 'CURRENT_TIMESTAMP' })
+  created_at!: Date;
+
+  @Column({ type: 'timestamp with time zone', default: () => 'CURRENT_TIMESTAMP' })
+  updated_at!: Date;
+
+  @OneToMany(() => PredictionItemEntity, (item) => item.prediction, { cascade: true })
+  items!: PredictionItemEntity[];
+}
+
+@Entity({ name: 'prediction_items' })
+export class PredictionItemEntity {
+  @PrimaryGeneratedColumn('uuid')
+  id!: string;
+
+  @Column({ name: 'prediction_id' })
+  prediction_id!: string;
+
+  @ManyToOne(() => PredictionEntity, (prediction) => prediction.items, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'prediction_id' })
+  prediction!: PredictionEntity;
+
+  @Column({ name: 'product_id' })
+  product_id!: string;
+
+  @ManyToOne(() => ProductEntity)
+  @JoinColumn({ name: 'product_id' })
+  product!: ProductEntity;
+
+  @Column()
+  estimated_quantity!: number;
+
+  @Column({ type: 'numeric', precision: 10, scale: 2, default: 0 })
+  unit_price!: number;
+
+  @Column({ type: 'numeric', precision: 10, scale: 2, default: 0 })
+  total_cost!: number;
+
+  @Column({ type: 'numeric', precision: 10, scale: 2, default: 0 })
+  unit_cost!: number;
+
+  @Column({ type: 'timestamp with time zone', default: () => 'CURRENT_TIMESTAMP' })
+  created_at!: Date;
+}
+
+
 // =========================================================================
 // DATA SOURCE MANAGER
 // =========================================================================
@@ -227,6 +291,8 @@ export async function getDataSource(): Promise<DataSource> {
       PaymentEntity,
       ExchangeRateEntity,
       AuditLogEntity,
+      PredictionEntity,
+      PredictionItemEntity,
     ],
     synchronize: false,
     logging: false,
@@ -483,6 +549,29 @@ export class PostgresAdapter implements DatabaseAdapter {
       },
       order: { created_at: 'DESC' },
     });
+    return list.map((s) => this.mapSaleEntity(s));
+  }
+
+  async getSalesBetweenDates(startDate: Date, endDate?: Date): Promise<Sale[]> {
+    const ds = await getDataSource();
+    const repo = ds.getRepository(SaleEntity);
+    const whereCondition = endDate
+      ? { created_at: Between(startDate, endDate) }
+      : { created_at: MoreThanOrEqual(startDate) };
+
+    const list = await repo.find({
+      relations: {
+        client: true,
+        items: {
+          product: true,
+        },
+        payments: true,
+        creator_profile: true,
+      },
+      where: whereCondition,
+      order: { created_at: 'DESC' },
+    });
+
     return list.map((s) => this.mapSaleEntity(s));
   }
 
@@ -929,4 +1018,242 @@ export class PostgresAdapter implements DatabaseAdapter {
       }),
     };
   }
+
+  // --- PREVISIONES ---
+  private mapPredictionEntity(p: PredictionEntity): Prediction {
+    return {
+      id: p.id,
+      status: p.status as PredictionStatus,
+      started_at: p.started_at.toISOString(),
+      finished_at: p.finished_at ? p.finished_at.toISOString() : null,
+      notes: p.notes || null,
+      created_at: p.created_at.toISOString(),
+      updated_at: p.updated_at.toISOString(),
+      items: p.items?.map((item) => ({
+        id: item.id,
+        prediction_id: item.prediction_id,
+        product_id: item.product_id,
+        estimated_quantity: item.estimated_quantity,
+        unit_price: toNumber(item.unit_price),
+        total_cost: toNumber(item.total_cost) || (toNumber(item.unit_cost) * item.estimated_quantity),
+        unit_cost: toNumber(item.unit_cost),
+        created_at: item.created_at.toISOString(),
+        product: item.product ? {
+          id: item.product.id,
+          name: item.product.name,
+          price_usd: toNumber(item.product.price_usd),
+          created_at: item.product.created_at.toISOString(),
+        } : undefined,
+      })),
+    };
+  }
+
+  async getActivePrediction(): Promise<Prediction | null> {
+    const ds = await getDataSource();
+    const repo = ds.getRepository(PredictionEntity);
+    const active = await repo.findOne({
+      where: { status: 'ACTIVE' },
+      relations: {
+        items: {
+          product: true,
+        },
+      },
+      order: { created_at: 'DESC' },
+    });
+
+    if (!active) return null;
+    return this.mapPredictionEntity(active);
+  }
+
+  async getPredictionById(id: string): Promise<Prediction | null> {
+    const ds = await getDataSource();
+    const repo = ds.getRepository(PredictionEntity);
+    const pred = await repo.findOne({
+      where: { id },
+      relations: {
+        items: {
+          product: true,
+        },
+      },
+    });
+
+    if (!pred) return null;
+    return this.mapPredictionEntity(pred);
+  }
+
+  async createOrAddItemToPrediction(input: CreatePredictionItemInput): Promise<Prediction> {
+    const ds = await getDataSource();
+    const predRepo = ds.getRepository(PredictionEntity);
+    const itemRepo = ds.getRepository(PredictionItemEntity);
+    const prodRepo = ds.getRepository(ProductEntity);
+
+    // 1. Obtener producto para asegurar existencia y precio
+    const product = await prodRepo.findOne({ where: { id: input.product_id } });
+    if (!product) throw new Error('Producto no encontrado');
+
+    const unitPrice = input.unit_price !== undefined ? input.unit_price : toNumber(product.price_usd);
+    let totalCost = input.total_cost !== undefined ? input.total_cost : 0;
+    let unitCost = input.unit_cost !== undefined ? input.unit_cost : 0;
+
+    if (totalCost > 0 && input.estimated_quantity > 0 && unitCost === 0) {
+      unitCost = Number((totalCost / input.estimated_quantity).toFixed(4));
+    } else if (unitCost > 0 && totalCost === 0) {
+      totalCost = Number((unitCost * input.estimated_quantity).toFixed(2));
+    }
+
+    // 2. Buscar si hay una previsión activa
+    let active = await predRepo.findOne({
+      where: { status: 'ACTIVE' },
+      relations: { items: true },
+      order: { created_at: 'DESC' },
+    });
+
+    if (!active) {
+      // Crear nueva previsión activa con fecha actual
+      active = predRepo.create({
+        status: 'ACTIVE',
+        started_at: new Date(),
+        created_at: new Date(),
+        updated_at: new Date(),
+        items: [],
+      });
+      active = await predRepo.save(active);
+    }
+
+    // 3. Revisar si el producto ya existe en los items de esta previsión
+    const existingItem = active.items?.find((i) => i.product_id === input.product_id);
+    console.log('Existing item', existingItem);
+    if (existingItem) {
+      console.log('Updating existing item');
+      existingItem.estimated_quantity += input.estimated_quantity;
+      existingItem.unit_price = unitPrice;
+      existingItem.total_cost = (Number(existingItem.total_cost) || 0) + totalCost;
+      existingItem.unit_cost = existingItem.estimated_quantity > 0
+        ? Number((existingItem.total_cost / existingItem.estimated_quantity).toFixed(4))
+        : unitCost;
+      await itemRepo.save(existingItem);
+    } else {
+      console.log('Creating new item');
+      const newItem = itemRepo.create({
+        prediction_id: active.id,
+        product_id: input.product_id,
+        estimated_quantity: input.estimated_quantity,
+        unit_price: unitPrice,
+        total_cost: totalCost,
+        unit_cost: unitCost,
+        created_at: new Date(),
+      });
+      await itemRepo.save(newItem);
+    }
+
+
+    // Actualizar updated_at de la previsión
+    await predRepo.update(active.id, { updated_at: new Date() });
+
+    const updated = await this.getPredictionById(active.id);
+    return updated!;
+  }
+
+  async deletePredictionItem(itemId: string): Promise<void> {
+    const ds = await getDataSource();
+    const itemRepo = ds.getRepository(PredictionItemEntity);
+    await itemRepo.delete(itemId);
+  }
+
+  async resetPrediction(notes?: string): Promise<Prediction | null> {
+    const ds = await getDataSource();
+    const predRepo = ds.getRepository(PredictionEntity);
+
+    const active = await predRepo.findOne({
+      where: { status: 'ACTIVE' },
+      relations: { items: true },
+      order: { created_at: 'DESC' },
+    });
+
+    if (!active) return null;
+
+    active.status = 'ARCHIVED';
+    active.finished_at = new Date();
+    active.updated_at = new Date();
+    if (notes) active.notes = notes;
+
+    await predRepo.save(active);
+    return this.mapPredictionEntity(active);
+  }
+
+  async getPredictionHistory(): Promise<PredictionHistoryItem[]> {
+    const ds = await getDataSource();
+    const predRepo = ds.getRepository(PredictionEntity);
+
+    const predictions = await predRepo.find({
+      relations: {
+        items: {
+          product: true,
+        },
+      },
+      order: { started_at: 'DESC' },
+    });
+
+    const historyItems: PredictionHistoryItem[] = [];
+
+    for (const p of predictions) {
+      const startDate = new Date(p.started_at);
+      const endDate = p.finished_at ? new Date(p.finished_at) : new Date();
+
+      // Ventas ocurridas en ese período
+      const sales = await this.getSalesBetweenDates(startDate, endDate);
+
+      let totalEstQty = 0;
+      let totalEstSales = 0;
+      let totalEstProfit = 0;
+      let totalSoldQty = 0;
+      let totalRealSales = 0;
+      let totalRealProfit = 0;
+
+      for (const item of p.items || []) {
+        const estQty = item.estimated_quantity;
+        const uPrice = toNumber(item.unit_price);
+        const uCost = toNumber(item.unit_cost);
+
+        totalEstQty += estQty;
+        totalEstSales += estQty * uPrice;
+        totalEstProfit += estQty * (uPrice - uCost);
+
+        // Calcular ventas reales para este producto
+        let prodSoldQty = 0;
+        let prodRealSales = 0;
+
+        for (const sale of sales) {
+          for (const sItem of sale.items || []) {
+            if (sItem.product_id === item.product_id) {
+              prodSoldQty += sItem.quantity;
+              prodRealSales += toNumber(sItem.subtotal);
+            }
+          }
+        }
+
+        totalSoldQty += prodSoldQty;
+        totalRealSales += prodRealSales;
+        totalRealProfit += prodRealSales - (prodSoldQty * uCost);
+      }
+
+      historyItems.push({
+        id: p.id,
+        status: p.status as PredictionStatus,
+        started_at: p.started_at.toISOString(),
+        finished_at: p.finished_at ? p.finished_at.toISOString() : null,
+        created_at: p.created_at.toISOString(),
+        items_count: p.items?.length || 0,
+        total_estimated_quantity: totalEstQty,
+        total_sold_quantity: totalSoldQty,
+        total_estimated_sales: totalEstSales,
+        total_real_sales: totalRealSales,
+        total_estimated_profit: totalEstProfit,
+        total_real_profit: totalRealProfit,
+      });
+    }
+
+    return historyItems;
+  }
 }
+

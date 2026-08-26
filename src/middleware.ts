@@ -34,8 +34,6 @@ export async function middleware(request: NextRequest) {
     const token = tokenCookie?.value;
     const payload = token ? await verifyTokenEdge(token) : null;
     const isAuthenticated = !!payload;
-    console.log('middleware - token:', token);
-    console.log('middleware - payload:', payload);
 
     if (isProtectedRoute && !isAuthenticated) {
       return NextResponse.redirect(new URL('/login', request.url));

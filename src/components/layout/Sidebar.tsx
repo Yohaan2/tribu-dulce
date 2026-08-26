@@ -15,7 +15,8 @@ import {
   ChevronRight,
   LogOut,
   History,
-  ClipboardClock
+  ClipboardClock,
+  TrendingUp
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
@@ -44,11 +45,13 @@ export function Sidebar({ className }: SidebarProps) {
     { name: 'Productos', href: '/products', icon: Package },
     { name: 'Ventas', href: '/sales', icon: ShoppingCart },
     { name: 'Historial', href: '/sales-history', icon: History },
+    { name: 'Previsiones', href: '/predictions', icon: TrendingUp },
     { name: 'Deudas', href: '/debts', icon: CreditCard },
     { name: 'Calendario', href: '/calendar', icon: Calendar },
     ...(user?.role === 'SUPERADMIN' ? [{ name: 'Auditoría', href: '/audit', icon: ClipboardClock }] : []),
     { name: 'Configuración', href: '/settings', icon: Settings },
   ];
+
 
   return (
     <aside

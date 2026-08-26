@@ -104,3 +104,84 @@ export interface DashboardStats {
     amount: number;
   }>;
 }
+
+// --- PREVISIONES ---
+export type PredictionStatus = 'ACTIVE' | 'ARCHIVED';
+
+export interface PredictionItem {
+  id: string;
+  prediction_id: string;
+  product_id: string;
+  estimated_quantity: number;
+  unit_price: number;
+  total_cost: number;
+  unit_cost: number;
+  created_at: string;
+  product?: Product;
+}
+
+export interface Prediction {
+  id: string;
+  status: PredictionStatus;
+  started_at: string;
+  finished_at: string | null;
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+  items?: PredictionItem[];
+}
+
+export interface PredictionItemComparison {
+  id: string;
+  prediction_id: string;
+  product_id: string;
+  product_name: string;
+  estimated_quantity: number;
+  unit_price: number;
+  total_cost: number;
+  unit_cost: number;
+  estimated_sales: number;
+  estimated_profit: number;
+  sold_quantity: number;
+  real_sales: number;
+  real_profit: number;
+  remaining_quantity: number;
+  is_exceeded: boolean;
+  exceeded_quantity: number;
+  fulfillment_rate: number; // porcentaje (ej: 75.5)
+}
+
+export interface PredictionSummary {
+  prediction: Prediction;
+  items: PredictionItemComparison[];
+  totals: {
+    total_estimated_quantity: number;
+    total_sold_quantity: number;
+    total_remaining_quantity: number;
+    total_estimated_sales: number;
+    total_real_sales: number;
+    total_estimated_cost: number;
+    total_estimated_profit: number;
+    total_real_profit: number;
+    overall_quantity_rate: number;
+    overall_sales_rate: number;
+    overall_profit_rate: number;
+  };
+}
+
+
+export interface PredictionHistoryItem {
+  id: string;
+  status: PredictionStatus;
+  started_at: string;
+  finished_at: string | null;
+  created_at: string;
+  items_count: number;
+  total_estimated_quantity: number;
+  total_sold_quantity: number;
+  total_estimated_sales: number;
+  total_real_sales: number;
+  total_estimated_profit: number;
+  total_real_profit: number;
+}
+
