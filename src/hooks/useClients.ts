@@ -88,6 +88,9 @@ export function useClients(page: number = 1, limit: number = 10, search: string 
     mutationFn: updateClient,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ queryKey: ['debts'] });
+      queryClient.invalidateQueries({ queryKey: ['sales'] });
+
     },
   });
 

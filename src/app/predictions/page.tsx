@@ -321,7 +321,7 @@ export default function PredictionsPage() {
                   className="flex items-center justify-center gap-2 rounded-xl border border-pink-200 bg-white px-3.5 py-2 text-xs font-bold text-pink-700 shadow-sm hover:bg-pink-50 active:scale-[0.98] transition-all"
                 >
                   <RotateCcw size={14} className="text-pink-600" />
-                  <span>Reiniciar Previsión</span>
+                  <span>Cerrar Venta</span>
                 </button>
               )}
             </div>
@@ -1104,7 +1104,7 @@ export default function PredictionsPage() {
                   <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-pink-100 text-pink-600">
                     <RotateCcw size={16} />
                   </div>
-                  <h3 className="text-base font-bold text-slate-900">Reiniciar Previsión</h3>
+                  <h3 className="text-base font-bold text-slate-900">Cierre de Ventas</h3>
                 </div>
                 <button
                   onClick={() => setIsResetModalOpen(false)}
