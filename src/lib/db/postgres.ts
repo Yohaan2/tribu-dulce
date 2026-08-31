@@ -680,6 +680,10 @@ export class PostgresAdapter implements DatabaseAdapter {
 
       if (input.status) {
         sale.status = input.status;
+
+        if (input.status === 'PENDING') {
+          await manager.getRepository(PaymentEntity).delete({ sale_id: id });
+        }
       }
 
       if (input.items) {

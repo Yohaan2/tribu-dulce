@@ -325,6 +325,15 @@ export class SupabaseAdapter implements DatabaseAdapter {
 
     if (input.status) {
       updateFields.status = input.status;
+
+      if (input.status === 'PENDING') {
+        const { error: paymentsError } = await supabase
+          .from('payments')
+          .delete()
+          .eq('sale_id', id);
+
+        if (paymentsError) throw new Error(paymentsError.message);
+      }
     }
 
     if (input.items) {
