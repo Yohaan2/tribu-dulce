@@ -488,11 +488,36 @@ export class PostgresAdapter implements DatabaseAdapter {
   }
 
   // --- VENTAS ---
-  private mapSaleEntity(s: SaleEntity): Sale {
+  private mapSaleEntity(s: SaleEntity, useCurrentProductPrices = false): Sale {
+    const items = s.items?.map((item) => {
+      const unitPrice = useCurrentProductPrices && item.product
+        ? toNumber(item.product.price_usd)
+        : toNumber(item.unit_price);
+
+      return {
+        id: item.id,
+        sale_id: item.sale_id,
+        product_id: item.product_id,
+        quantity: item.quantity,
+        unit_price: unitPrice,
+        subtotal: item.quantity * unitPrice,
+        product: item.product ? {
+          id: item.product.id,
+          name: item.product.name,
+          price_usd: toNumber(item.product.price_usd),
+          created_at: item.product.created_at.toISOString(),
+        } : undefined,
+      };
+    });
+
+    const currentTotalUsd = items?.reduce((sum, item) => sum + item.subtotal, 0);
+
     return {
       id: s.id,
       client_id: s.client_id,
-      total_usd: toNumber(s.total_usd),
+      total_usd: useCurrentProductPrices && currentTotalUsd !== undefined
+        ? currentTotalUsd
+        : toNumber(s.total_usd),
       total_bs: toNumber(s.total_bs),
       status: s.status as SaleStatus,
       created_by: s.created_by || null,
@@ -503,20 +528,7 @@ export class PostgresAdapter implements DatabaseAdapter {
         phone: s.client.phone || null,
         created_at: s.client.created_at.toISOString(),
       } : undefined,
-      items: s.items?.map((item) => ({
-        id: item.id,
-        sale_id: item.sale_id,
-        product_id: item.product_id,
-        quantity: item.quantity,
-        unit_price: toNumber(item.unit_price),
-        subtotal: toNumber(item.subtotal),
-        product: item.product ? {
-          id: item.product.id,
-          name: item.product.name,
-          price_usd: toNumber(item.product.price_usd),
-          created_at: item.product.created_at.toISOString(),
-        } : undefined,
-      })),
+      items,
       payments: s.payments?.map((p) => ({
         id: p.id,
         sale_id: p.sale_id,
@@ -587,7 +599,7 @@ export class PostgresAdapter implements DatabaseAdapter {
       },
     });
     if (!s) throw new Error('Venta no encontrada');
-    return this.mapSaleEntity(s);
+    return this.mapSaleEntity(s, ['PENDING', 'PARTIAL'].includes(s.status));
   }
 
   async createSale(input: CreateSaleInput): Promise<Sale> {
@@ -741,7 +753,7 @@ export class PostgresAdapter implements DatabaseAdapter {
       .orderBy('sale.created_at', 'DESC')
       .getMany();
 
-    return debts.map((s) => this.mapSaleEntity(s));
+    return debts.map((s) => this.mapSaleEntity(s, true));
   }
 
   async getClientDebts(clientId: string): Promise<any[]> {
@@ -750,6 +762,8 @@ export class PostgresAdapter implements DatabaseAdapter {
     
     const sales = await repo.createQueryBuilder('sale')
       .leftJoinAndSelect('sale.payments', 'payment')
+      .leftJoinAndSelect('sale.items', 'item')
+      .leftJoinAndSelect('item.product', 'product')
       .where('sale.client_id = :clientId', { clientId })
       .andWhere('sale.status IN (:...statuses)', { statuses: ['PENDING', 'PARTIAL'] })
       .orderBy('sale.created_at', 'ASC')
@@ -757,7 +771,7 @@ export class PostgresAdapter implements DatabaseAdapter {
 
     return sales.map((s) => ({
       id: s.id,
-      total_usd: toNumber(s.total_usd),
+      total_usd: this.mapSaleEntity(s, true).total_usd,
       created_at: s.created_at.toISOString(),
       payments: s.payments?.map((p) => ({
         amount_usd: toNumber(p.amount_usd),
@@ -864,13 +878,16 @@ export class PostgresAdapter implements DatabaseAdapter {
     // 4. Monto pendiente por cobrar (deudas)
     const pendingSales = await saleRepo.createQueryBuilder('sale')
       .leftJoinAndSelect('sale.payments', 'payment')
+      .leftJoinAndSelect('sale.items', 'item')
+      .leftJoinAndSelect('item.product', 'product')
       .where('sale.status IN (:...statuses)', { statuses: ['PENDING', 'PARTIAL'] })
       .getMany();
 
     let pendingAmount = 0;
     pendingSales.forEach((sale) => {
       const totalPaid = (sale.payments || []).reduce((acc, curr) => acc + toNumber(curr.amount_usd), 0);
-      const outstanding = toNumber(sale.total_usd) - totalPaid;
+      const currentTotalUsd = this.mapSaleEntity(sale, true).total_usd;
+      const outstanding = currentTotalUsd - totalPaid;
       if (outstanding > 0) {
         pendingAmount += outstanding;
       }

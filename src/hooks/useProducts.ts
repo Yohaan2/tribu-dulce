@@ -60,6 +60,7 @@ export function useProducts() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
       queryClient.invalidateQueries({ queryKey: ['predictions', 'active'] });
+      queryClient.invalidateQueries({ queryKey: ['debts'] });
     },
   });
 
