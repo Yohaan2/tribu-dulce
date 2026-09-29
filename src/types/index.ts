@@ -4,6 +4,9 @@ export interface UserProfile {
   id: string;
   name: string;
   role: UserRole;
+  email?: string;
+  is_active?: boolean;
+  deleted_at?: string | null;
   created_at: string;
 }
 

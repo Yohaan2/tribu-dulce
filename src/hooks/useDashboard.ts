@@ -9,6 +9,20 @@ async function fetchDashboardStats(): Promise<DashboardStats> {
   return json.data;
 }
 
+export function useSellerChart(sellerId: string, enabled: boolean) {
+  return useQuery<Array<{ day: string; amount: number }>>({
+    queryKey: ['seller-chart', sellerId],
+    enabled: enabled && !!sellerId,
+    refetchInterval: 30000,
+    queryFn: async () => {
+      const res = await authFetch(`/api/dashboard/seller-chart?sellerId=${encodeURIComponent(sellerId)}`);
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || 'No se pudieron cargar las ventas');
+      return json.data;
+    },
+  });
+}
+
 export function useDashboard() {
   const dashboardQuery = useQuery({
     queryKey: ['dashboard'],

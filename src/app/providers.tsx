@@ -19,6 +19,13 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   );
 
   const initializeAuth = useAuthStore((state) => state.initializeAuth);
+  const identity = useAuthStore((state) => state.user ? `${state.user.id}:${state.user.role}` : undefined);
+  const previousIdentity = React.useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (previousIdentity.current !== identity) queryClient.clear();
+    previousIdentity.current = identity;
+  }, [identity, queryClient]);
 
   useEffect(() => {
     initializeAuth();

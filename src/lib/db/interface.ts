@@ -22,8 +22,8 @@ export interface DatabaseAdapter {
   deleteProduct(id: string): Promise<void>;
 
   // --- VENTAS ---
-  getSales(): Promise<Sale[]>;
-  getSalesBetweenDates(startDate: Date, endDate?: Date): Promise<Sale[]>;
+  getSales(sellerId?: string): Promise<Sale[]>;
+  getSalesBetweenDates(startDate: Date, endDate?: Date, sellerId?: string): Promise<Sale[]>;
   getSaleById(id: string): Promise<Sale>;
   createSale(input: CreateSaleInput): Promise<Sale>;
   updateSaleStatus(id: string, status: SaleStatus): Promise<Sale>;
@@ -35,7 +35,7 @@ export interface DatabaseAdapter {
     }
   ): Promise<Sale>;
   deleteSale(id: string): Promise<void>;
-  getDebts(): Promise<Sale[]>;
+  getDebts(sellerId?: string): Promise<Sale[]>;
   getClientDebts(clientId: string): Promise<any[]>;
 
   // --- PAGOS ---
@@ -47,7 +47,7 @@ export interface DatabaseAdapter {
   createExchangeRate(rate: number, source: string): Promise<ExchangeRate>;
 
   // --- DASHBOARD ---
-  getDashboardStats(todayStart: string, weekStart: string, monthStart: string): Promise<DashboardStats>;
+  getDashboardStats(todayStart: string, weekStart: string, monthStart: string, sellerId?: string): Promise<DashboardStats>;
 
   // --- AUDITORIA ---
   getAuditLogs(page?: number, limit?: number, startDate?: string, endDate?: string): Promise<{ data: AuditLog[]; total: number }>;

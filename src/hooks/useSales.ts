@@ -48,6 +48,28 @@ async function updateSale({
   return json.data;
 }
 
+async function assignSale({ saleId, sellerId }: { saleId: string; sellerId: string }): Promise<void> {
+  const res = await authFetch(`/api/sales/${saleId}/assign`, {
+    method: 'PATCH',
+    body: JSON.stringify({ seller_id: sellerId }),
+  });
+  const json = await res.json();
+  if (!res.ok || !json.success) throw new Error(json.error || 'No se pudo asignar la venta');
+}
+
+export function useAssignSale() {
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: assignSale,
+    onSuccess: async () => {
+      await Promise.all(['sales', 'debts', 'dashboard', 'seller-chart'].map((key) =>
+        queryClient.invalidateQueries({ queryKey: [key] })
+      ));
+    },
+  });
+  return { assignSale: mutation.mutateAsync, isAssigning: mutation.isPending, assigningSaleId: mutation.variables?.saleId };
+}
+
 export function useSales() {
   const queryClient = useQueryClient();
 

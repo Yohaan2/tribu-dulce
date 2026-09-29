@@ -6,8 +6,8 @@ export class PaymentsService {
   /**
    * Obtiene todas las deudas (ventas con estado PENDING o PARTIAL)
    */
-  static async getDebts(): Promise<Sale[]> {
-    return await db.getDebts();
+  static async getDebts(sellerId?: string): Promise<Sale[]> {
+    return await db.getDebts(sellerId);
   }
 
   /**

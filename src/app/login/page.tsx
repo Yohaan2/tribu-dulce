@@ -11,7 +11,6 @@ import { setClientAuth } from '@/lib/auth/client';
 export default function LoginPage() {
   const router = useRouter();
   const setUser = useAuthStore((state) => state.setUser);
-  const setLoading = useAuthStore((state) => state.setLoading);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -93,132 +92,6 @@ export default function LoginPage() {
       setError(err.message || 'Error al iniciar sesión');
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handleQuickLogin = async (role: 'ADMIN' | 'EMPLOYEE') => {
-    setLoading(true);
-    setError('');
-
-    const provider = (process.env.NEXT_PUBLIC_DATABASE_PROVIDER || 'postgres').toLowerCase();
-    const testEmail = role === 'ADMIN' ? 'LizmarR17@gmail.com' : 'employee.tribudulce@gmail.com';
-    const testPassword = 'test123456';
-
-    try {
-      if (provider !== 'supabase') {
-        // Intentar iniciar sesión
-        const loginRes = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: testEmail, password: testPassword }),
-        });
-
-        const loginResult = await loginRes.json();
-
-        if (loginRes.ok && loginResult.success) {
-          const { token, user } = loginResult.data;
-          setClientAuth(token, user);
-          setUser(user);
-          router.push('/dashboard');
-          return;
-        }
-
-        // Si falló por credenciales inválidas (el usuario no existe en Postgres local), lo registramos automáticamente
-        if (loginRes.status === 401 || (loginResult.error && loginResult.error.includes('crede'))) {
-          const registerRes = await fetch('/api/auth/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              email: testEmail,
-              password: testPassword,
-              name: role === 'ADMIN' ? 'Lizmar' : 'Lizzi Vendedor',
-              role: role,
-            }),
-          });
-
-          const registerResult = await registerRes.json();
-          if (!registerRes.ok || !registerResult.success) {
-            throw new Error(registerResult.error || 'Error al registrar usuario de prueba');
-          }
-
-          const { token, user } = registerResult.data;
-          setClientAuth(token, user);
-          setUser(user);
-          router.push('/dashboard');
-        } else {
-          throw new Error(loginResult.error || 'Error en inicio de sesión rápido');
-        }
-      } else {
-        // Para desarrollo rápido, usar credenciales de prueba
-        const supabase = createClient();
-        const { data, error: signInError } = await supabase.auth.signInWithPassword({
-          email: testEmail,
-          password: testPassword,
-        });
-
-        if (signInError) {
-          // Si el usuario no existe, crearlo
-          if (signInError.message.includes('Invalid login credentials')) {
-            const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-              email: testEmail,
-              password: testPassword
-            });
-
-            if (signUpError) {
-              throw signUpError;
-            }
-
-            if (signUpData.user) {
-              // Crear perfil manualmente
-              const { error: profileError } = await supabase
-                .from('profiles')
-                .insert({
-                  id: signUpData.user.id,
-                  name: role === 'ADMIN' ? 'Tribu Admin (Gaby)' : 'Juan Vendedor',
-                  role: role,
-                });
-
-              if (profileError) {
-                console.error('Error creando perfil:', profileError);
-              }
-
-              const user = {
-                id: signUpData.user.id,
-                name: role === 'ADMIN' ? 'Tribu Admin (Gaby)' : 'Juan Vendedor',
-                role: role,
-                created_at: signUpData.user.created_at,
-              };
-
-              setUser(user);
-              router.push('/dashboard');
-              return;
-            }
-          }
-          throw signInError;
-        }
-
-        if (data.user) {
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', data.user.id)
-            .single();
-
-          const user = {
-            id: data.user.id,
-            name: profileData?.name || data.user.email?.split('@')[0] || 'Usuario',
-            role: profileData?.role || role,
-            created_at: profileData?.created_at || data.user.created_at,
-          };
-
-          setUser(user);
-          router.push('/dashboard');
-        }
-      }
-    } catch (err: any) {
-      setError(err.message || 'Error al iniciar sesión rápido');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -342,22 +215,6 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <div className="mt-16 flex justify-center gap-4 text-[10px] text-stone-400/20">
-          <button 
-            type="button" 
-            onClick={() => handleQuickLogin('ADMIN')}
-            className="hover:text-stone-500 transition-colors"
-          >
-            • Admin
-          </button>
-          <button 
-            type="button" 
-            onClick={() => handleQuickLogin('EMPLOYEE')}
-            className="hover:text-stone-500 transition-colors"
-          >
-            • Empleado
-          </button>
-        </div>
       </div>
     </div>
   );

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { PredictionsService } from '@/services/predictions.service';
+import { withAuth, withRole } from '@/lib/auth/withAuth';
 
-export async function GET(request: Request, context: any) {
+export const GET = withAuth(withRole('ADMIN', 'SUPERADMIN')(async (request: Request, context: any) => {
   try {
     const params = await context.params;
     const { id } = params;
@@ -23,4 +24,4 @@ export async function GET(request: Request, context: any) {
       { status: 500 }
     );
   }
-}
+}));

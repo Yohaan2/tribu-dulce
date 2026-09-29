@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { DashboardService } from '@/services/dashboard.service';
+import { AuthenticatedRequest, withAuth } from '@/lib/auth/withAuth';
 
-export async function GET() {
+export const GET = withAuth(async (request: AuthenticatedRequest) => {
   try {
-    const stats = await DashboardService.getStats();
+    const stats = await DashboardService.getStats(request.user?.role === 'EMPLOYEE' ? request.user.id : undefined);
     return NextResponse.json({ success: true, data: stats });
   } catch (error: any) {
     console.error('[src/app/api/dashboard/route.ts] status: 500, error:', error);
@@ -13,4 +14,4 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
+});

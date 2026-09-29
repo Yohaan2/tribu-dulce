@@ -2,7 +2,6 @@
 
 import { useRouter } from 'next/navigation';
 import {
-  TrendingUp,
   DollarSign,
   CalendarDays,
   CalendarCheck,
@@ -12,8 +11,11 @@ import {
   UserPlus,
 } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { useDashboard } from '@/hooks/useDashboard';
-import { formatCurrencyUsd, formatCurrencyBs } from '@/lib/utils';
+import { useDashboard, useSellerChart } from '@/hooks/useDashboard';
+import { useSellers } from '@/hooks/useUsers';
+import { useAuthStore } from '@/stores/auth.store';
+import { useState } from 'react';
+import { formatCurrencyUsd } from '@/lib/utils';
 import {
   BarChart,
   Bar,
@@ -53,15 +55,17 @@ function getCurrentWeekRange() {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { stats, isLoading } = useDashboard();
+  const { stats } = useDashboard();
+  const role = useAuthStore((state) => state.user?.role);
+  const [sellerId, setSellerId] = useState('');
+  const canViewSellers = role === 'ADMIN' || role === 'SUPERADMIN';
+  const sellers = useSellers(canViewSellers);
+  const sellerChart = useSellerChart(sellerId, canViewSellers);
 
   // Si está cargando, mostramos skeletons elegantes.
   // Si los datos de la BD existen pero todo está en cero (vacía), podemos usar mock para fines de diseño/demo,
   // pero mantendremos la lógica limpia. Combinamos stats con mock de fallback si no hay datos.
-  const activeStats =
-    stats && (stats.todaySales > 0 || stats.weekSales > 0 || stats.pendingAmount > 0)
-      ? stats
-      : MOCK_STATS;
+  const activeStats = stats || MOCK_STATS;
 
   return (
     <MainLayout title="Dashboard General">
@@ -111,10 +115,7 @@ export default function DashboardPage() {
               <h3 className="text-lg font-black text-slate-800">
                 {formatCurrencyUsd(activeStats.todaySales)}
               </h3>
-              <p className="mt-1 flex items-center gap-1 text-[10px] text-emerald-600 font-bold">
-                <TrendingUp size={12} />
-                <span>+12.5% vs ayer</span>
-              </p>
+
             </div>
           </div>
 
@@ -250,7 +251,19 @@ export default function DashboardPage() {
             </button>
           </div>
         </div>
-
+        {(role === 'ADMIN' || role === 'SUPERADMIN') && <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div><h3 className="font-bold text-slate-800">Ventas por vendedor</h3><p className="text-xs text-slate-500">Total vendido en USD durante los últimos siete días.</p></div>
+            <select aria-label="Seleccionar vendedor" value={sellerId} onChange={(event) => setSellerId(event.target.value)} className="rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-700">
+              <option value="">Selecciona un vendedor</option>
+              {sellers.data?.map((seller) => <option key={seller.id} value={seller.id}>{seller.name}{seller.deleted_at ? ' (baja)' : ''}</option>)}
+            </select>
+          </div>
+          {sellerChart.error && <p className="text-sm text-rose-600">No se pudieron cargar las ventas.</p>}
+          <div className="h-64"><ResponsiveContainer width="100%" height="100%"><BarChart data={sellerChart.data || []}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="day" fontSize={11} /><YAxis fontSize={11} /><Tooltip /><Bar dataKey="amount" name="Vendido" fill="#64241c" radius={[6, 6, 0, 0]} />
+          </BarChart></ResponsiveContainer></div>
+        </section>}
       </div>
     </MainLayout>
   );

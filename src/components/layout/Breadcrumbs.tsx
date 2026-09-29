@@ -23,6 +23,7 @@ export function Breadcrumbs() {
     settings: 'Configuración',
     login: 'Login',
     audit: 'Auditoría',
+    users: 'Usuarios',
   };
 
 

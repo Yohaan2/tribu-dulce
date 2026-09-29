@@ -3,8 +3,8 @@ import { Sale, SaleStatus } from '@/types';
 import { CreateSaleInput } from '@/schemas/sale.schema';
 
 export class SalesService {
-  static async getAll(): Promise<Sale[]> {
-    return await db.getSales();
+  static async getAll(sellerId?: string): Promise<Sale[]> {
+    return await db.getSales(sellerId);
   }
 
   static async getById(id: string): Promise<Sale> {

@@ -21,7 +21,10 @@ export class ClientsService {
       const debtPending = totalPending - totalPaid;
 
       return {
-        ...client,
+        id: client.id,
+        name: client.name,
+        phone: client.phone,
+        created_at: client.created_at,
         total_purchased: totalPurchased,
         debt_pending: debtPending > 0 ? debtPending : 0,
       };

@@ -4,7 +4,7 @@ import { AuditService } from '@/services/audit.service';
 import { CreateProductSchema } from '@/schemas/product.schema';
 import { AuthenticatedRequest, withAuth } from '@/lib/auth/withAuth';
 
-export async function GET() {
+export const GET = withAuth(async () => {
   try {
     const products = await ProductsService.getAll();
     return NextResponse.json({ success: true, data: products });
@@ -16,10 +16,11 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
+});
 
 export const POST = withAuth(async (request: AuthenticatedRequest) => {
   try {
+    if (request.user?.role === 'EMPLOYEE') return NextResponse.json({ success: false, error: 'Acceso denegado' }, { status: 403 });
     const body = await request.json();
 
     const validation = CreateProductSchema.safeParse(body);

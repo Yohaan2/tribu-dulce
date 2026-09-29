@@ -7,6 +7,7 @@ import { CreateSaleInput } from '@/schemas/sale.schema';
 import { CreatePaymentInput } from '@/schemas/payment.schema';
 import { CreatePredictionItemInput, UpdatePredictionItemInput } from '@/schemas/prediction.schema';
 import { DatabaseAdapter } from './interface';
+import type { UserRole } from '@/types';
 
 // =========================================================================
 // ENTIDADES DE TYPEORM
@@ -26,8 +27,14 @@ export class ProfileEntity {
   @Column()
   password_hash!: string;
 
-  @Column()
-  role!: 'ADMIN' | 'EMPLOYEE';
+  @Column({ type: 'varchar' })
+  role!: UserRole;
+
+  @Column({ default: true })
+  is_active!: boolean;
+
+  @Column({ type: 'timestamp with time zone', nullable: true })
+  deleted_at!: Date | null;
 
   @Column({ type: 'timestamp with time zone', default: () => 'CURRENT_TIMESTAMP' })
   created_at!: Date;
@@ -545,7 +552,7 @@ export class PostgresAdapter implements DatabaseAdapter {
     };
   }
 
-  async getSales(): Promise<Sale[]> {
+  async getSales(sellerId?: string): Promise<Sale[]> {
     const ds = await getDataSource();
     const repo = ds.getRepository(SaleEntity);
     const list = await repo.find({
@@ -556,17 +563,19 @@ export class PostgresAdapter implements DatabaseAdapter {
         },
         creator_profile: true,
       },
+      where: sellerId ? { created_by: sellerId } : undefined,
       order: { created_at: 'DESC' },
     });
     return list.map((s) => this.mapSaleEntity(s));
   }
 
-  async getSalesBetweenDates(startDate: Date, endDate?: Date): Promise<Sale[]> {
+  async getSalesBetweenDates(startDate: Date, endDate?: Date, sellerId?: string): Promise<Sale[]> {
     const ds = await getDataSource();
     const repo = ds.getRepository(SaleEntity);
-    const whereCondition = endDate
-      ? { created_at: Between(startDate, endDate) }
-      : { created_at: MoreThanOrEqual(startDate) };
+    const whereCondition = {
+      created_at: endDate ? Between(startDate, endDate) : MoreThanOrEqual(startDate),
+      ...(sellerId ? { created_by: sellerId } : {}),
+    };
 
     const list = await repo.find({
       relations: {
@@ -739,7 +748,7 @@ export class PostgresAdapter implements DatabaseAdapter {
     if (!result.affected) throw new Error('Venta no encontrada');
   }
 
-  async getDebts(): Promise<Sale[]> {
+  async getDebts(sellerId?: string): Promise<Sale[]> {
     const ds = await getDataSource();
     const repo = ds.getRepository(SaleEntity);
     // Consulta similar a getDebts de Supabase (.in('status', ['PENDING', 'PARTIAL']))
@@ -750,6 +759,7 @@ export class PostgresAdapter implements DatabaseAdapter {
       .leftJoinAndSelect('item.product', 'product')
       .leftJoinAndSelect('sale.creator_profile', 'creator_profile')
       .where('sale.status IN (:...statuses)', { statuses: ['PENDING', 'PARTIAL'] })
+      .andWhere(sellerId ? 'sale.created_by = :sellerId' : '1=1', { sellerId })
       .orderBy('sale.created_at', 'DESC')
       .getMany();
 
@@ -842,7 +852,7 @@ export class PostgresAdapter implements DatabaseAdapter {
   }
 
   // --- DASHBOARD ---
-  async getDashboardStats(todayStart: string, weekStart: string, monthStart: string): Promise<DashboardStats> {
+  async getDashboardStats(todayStart: string, weekStart: string, monthStart: string, sellerId?: string): Promise<DashboardStats> {
     const ds = await getDataSource();
     const saleRepo = ds.getRepository(SaleEntity);
 
@@ -857,6 +867,7 @@ export class PostgresAdapter implements DatabaseAdapter {
     const todaySalesData = await saleRepo.createQueryBuilder('sale')
       .select('SUM(sale.total_usd)', 'sum')
       .where('sale.created_at >= :todayDate', { todayDate })
+      .andWhere(sellerId ? 'sale.created_by = :sellerId' : '1=1', { sellerId })
       .getRawOne();
     const todaySales = toNumber(todaySalesData?.sum);
 
@@ -865,6 +876,7 @@ export class PostgresAdapter implements DatabaseAdapter {
       .select('SUM(sale.total_usd)', 'sum')
       .where('sale.created_at >= :weekDate', { weekDate })
       .andWhere('sale.created_at < :weekEndDate', { weekEndDate })
+      .andWhere(sellerId ? 'sale.created_by = :sellerId' : '1=1', { sellerId })
       .getRawOne();
     const weekSales = toNumber(weekSalesData?.sum);
 
@@ -872,6 +884,7 @@ export class PostgresAdapter implements DatabaseAdapter {
     const monthSalesData = await saleRepo.createQueryBuilder('sale')
       .select('SUM(sale.total_usd)', 'sum')
       .where('sale.created_at >= :monthDate', { monthDate })
+      .andWhere(sellerId ? 'sale.created_by = :sellerId' : '1=1', { sellerId })
       .getRawOne();
     const monthSales = toNumber(monthSalesData?.sum);
 
@@ -881,6 +894,7 @@ export class PostgresAdapter implements DatabaseAdapter {
       .leftJoinAndSelect('sale.items', 'item')
       .leftJoinAndSelect('item.product', 'product')
       .where('sale.status IN (:...statuses)', { statuses: ['PENDING', 'PARTIAL'] })
+      .andWhere(sellerId ? 'sale.created_by = :sellerId' : '1=1', { sellerId })
       .getMany();
 
     let pendingAmount = 0;
@@ -896,6 +910,7 @@ export class PostgresAdapter implements DatabaseAdapter {
     // 5. Clientes top (más compras)
     const allSalesWithClients = await saleRepo.createQueryBuilder('sale')
       .leftJoinAndSelect('sale.client', 'client')
+      .where(sellerId ? 'sale.created_by = :sellerId' : '1=1', { sellerId })
       .getMany();
 
     const clientMap: Record<string, { name: string; totalSpent: number; count: number }> = {};
@@ -921,15 +936,18 @@ export class PostgresAdapter implements DatabaseAdapter {
       .slice(0, 5);
 
     // 6. Datos semanales para el gráfico (últimos 7 días)
+    const chartStart = new Date();
+    chartStart.setHours(0, 0, 0, 0);
+    chartStart.setDate(chartStart.getDate() - 6);
     const weekSalesList = await saleRepo.createQueryBuilder('sale')
-      .where('sale.created_at >= :weekDate', { weekDate })
-      .andWhere('sale.created_at < :weekEndDate', { weekEndDate })
+      .where('sale.created_at >= :chartStart', { chartStart })
+      .andWhere(sellerId ? 'sale.created_by = :sellerId' : '1=1', { sellerId })
       .getMany();
 
-    const daysOfWeek = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+    const daysOfWeek = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
     const weeklyChartData = Array.from({ length: 7 }).map((_, i) => {
-      const d = new Date(weekDate);
-      d.setDate(weekDate.getDate() + i);
+      const d = new Date(chartStart);
+      d.setDate(chartStart.getDate() + i);
       const dayName = daysOfWeek[d.getDay()];
       const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
       const dayEnd = dayStart + 24 * 60 * 60 * 1000;

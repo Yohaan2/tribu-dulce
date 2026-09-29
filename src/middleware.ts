@@ -23,7 +23,7 @@ export async function middleware(request: NextRequest) {
   }
 
   const provider = process.env.DATABASE_PROVIDER?.toLowerCase() || 'postgres';
-  const protectedRoutes = ['/dashboard', '/clients', '/products', '/sales', '/sales-history', '/debts', '/calendar', '/settings', '/audit'];
+  const protectedRoutes = ['/dashboard', '/clients', '/products', '/sales', '/sales-history', '/debts', '/predictions', '/calendar', '/settings', '/audit', '/users'];
   const isProtectedRoute = protectedRoutes.some((route) => nextPath === route || nextPath.startsWith(`${route}/`));
 
   // =========================================================================
@@ -37,6 +37,13 @@ export async function middleware(request: NextRequest) {
 
     if (isProtectedRoute && !isAuthenticated) {
       return NextResponse.redirect(new URL('/login', request.url));
+    }
+
+    if (payload?.role === 'EMPLOYEE' && ['/products', '/predictions', '/calendar', '/settings', '/audit', '/users'].some((route) => nextPath === route || nextPath.startsWith(`${route}/`))) {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+    if (nextPath === '/users' && payload?.role !== 'SUPERADMIN') {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
     }
 
     // Proteger /audit solo para SUPERADMIN

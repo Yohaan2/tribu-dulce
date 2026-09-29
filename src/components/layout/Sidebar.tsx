@@ -20,7 +20,6 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
-import { createClient } from '@/lib/supabase/client';
 import Image from 'next/image';
 import localFont from 'next/font/local';
 
@@ -42,14 +41,15 @@ export function Sidebar({ className }: SidebarProps) {
   const menuItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Clientes', href: '/clients', icon: Users },
-    { name: 'Productos', href: '/products', icon: Package },
+    ...(user?.role !== 'EMPLOYEE' ? [{ name: 'Productos', href: '/products', icon: Package }] : []),
     { name: 'Ventas', href: '/sales', icon: ShoppingCart },
     { name: 'Historial', href: '/sales-history', icon: History },
-    { name: 'Previsiones', href: '/predictions', icon: TrendingUp },
+    ...(user?.role !== 'EMPLOYEE' ? [{ name: 'Previsiones', href: '/predictions', icon: TrendingUp }] : []),
     { name: 'Deudas', href: '/debts', icon: CreditCard },
-    { name: 'Calendario', href: '/calendar', icon: Calendar },
+    ...(user?.role !== 'EMPLOYEE' ? [{ name: 'Calendario', href: '/calendar', icon: Calendar }] : []),
     ...(user?.role === 'SUPERADMIN' ? [{ name: 'Auditoría', href: '/audit', icon: ClipboardClock }] : []),
-    { name: 'Configuración', href: '/settings', icon: Settings },
+    ...(user?.role === 'SUPERADMIN' ? [{ name: 'Usuarios', href: '/users', icon: Users }] : []),
+    ...(user?.role !== 'EMPLOYEE' ? [{ name: 'Configuración', href: '/settings', icon: Settings }] : []),
   ];
 
 
@@ -64,7 +64,7 @@ export function Sidebar({ className }: SidebarProps) {
       {/* Botón de Colapso */}
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
-        className="absolute -right-3 top-6 flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:bg-slate-50 md:flex hidden"
+        className="absolute -right-3 top-6 hidden h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:bg-slate-50 md:flex"
       >
         {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
       </button>
@@ -87,7 +87,7 @@ export function Sidebar({ className }: SidebarProps) {
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Sesión como</p>
           <p className="text-sm font-bold text-slate-800 truncate">{user.name}</p>
           <span className="mt-1 inline-flex items-center rounded-full bg-primary/5 px-2 py-0.5 text-xs font-semibold text-primary border border-primary/10">
-            {user.role}
+            {user.role === 'EMPLOYEE' ? 'Vendedor' : user.role}
           </span>
         </div>
       )}

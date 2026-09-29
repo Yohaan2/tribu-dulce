@@ -7,7 +7,6 @@ import { useProducts } from '@/hooks/useProducts';
 import { useSales } from '@/hooks/useSales';
 import { useExchangeRate } from '@/hooks/useExchangeRate';
 import { useSalesStore } from '@/stores/sales.store';
-import { useAuthStore } from '@/stores/auth.store';
 import { formatCurrencyUsd, formatCurrencyBs } from '@/lib/utils';
 import { ShoppingCart, User, Plus, Minus, Trash, Check, Loader2, Save, CalendarDays } from 'lucide-react';
 import { Client, SaleStatus } from '@/types';
@@ -19,7 +18,6 @@ export default function SalesPage() {
   const { products, isLoading: productsLoading } = useProducts();
   const { createSale, isCreating } = useSales();
   const { exchangeRate } = useExchangeRate();
-  const currentUser = useAuthStore((state) => state.user);
 
   // Zustand Store
   const {
@@ -105,7 +103,6 @@ export default function SalesPage() {
         total_usd: totalUsd,
         total_bs: totalBs,
         status,
-        created_by: currentUser?.id || null,
         created_at: saleDate,
         partial_payment_usd: status === 'PARTIAL' ? parseFloat(partialPayment) : null,
       };

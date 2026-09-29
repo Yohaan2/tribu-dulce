@@ -2,7 +2,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { useSales } from '@/hooks/useSales';
+import { useSales, useAssignSale } from '@/hooks/useSales';
+import { useSellers } from '@/hooks/useUsers';
 import { useProducts } from '@/hooks/useProducts';
 import { useExchangeRate } from '@/hooks/useExchangeRate';
 import { formatCurrencyUsd, formatCurrencyBs } from '@/lib/utils';
@@ -20,11 +21,11 @@ import {
   CheckCircle2, 
   AlertCircle,
   HelpCircle,
-  TrendingUp,
   Loader2
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Sale, SaleStatus } from '@/types';
+import { useAuthStore } from '@/stores/auth.store';
 
 type FilterType = 'Todas' | 'Pendientes' | 'Pagadas' | 'Este Mes';
 
@@ -36,6 +37,9 @@ interface EditableItem {
 }
 
 export default function SalesHistoryPage() {
+  const role = useAuthStore((state) => state.user?.role);
+  const sellersQuery = useSellers(role === 'SUPERADMIN');
+  const { assignSale, isAssigning, assigningSaleId } = useAssignSale();
   const router = useRouter();
   const {
     sales,
@@ -281,8 +285,8 @@ export default function SalesHistoryPage() {
       setViewingSale((current) => current?.id === saleToDelete.id ? null : current);
       setEditingSale((current) => current?.id === saleToDelete.id ? null : current);
       handleCancelDelete();
-    } catch (error: any) {
-      alert(`Error al eliminar la venta: ${error.message}`);
+    } catch (error) {
+      alert(`Error al eliminar la venta: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }
   };
 
@@ -299,8 +303,8 @@ export default function SalesHistoryPage() {
         })),
       });
       setEditingSale(null);
-    } catch (error: any) {
-      alert(`Error al actualizar la venta: ${error.message}`);
+    } catch (error) {
+      alert(`Error al actualizar la venta: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }
   };
 
@@ -326,7 +330,7 @@ export default function SalesHistoryPage() {
             onClick={() => router.push('/sales')}
             className="flex-1 bg-[#5C2320] hover:bg-[#7A2F2B] active:scale-[0.98] text-white py-3.5 px-4 rounded-2xl text-xs font-black tracking-wide flex items-center justify-center gap-2 shadow-md shadow-[#5C2320]/10 transition-all cursor-pointer"
           >
-            <Plus size={16} className="stroke-[3]" />
+            <Plus size={16} className="stroke-3" />
             Nueva Venta
           </button>
           
@@ -368,7 +372,7 @@ export default function SalesHistoryPage() {
               <ShoppingBag size={20} />
             </div>
             <h3 className="text-sm font-black text-slate-700">Sin transacciones</h3>
-            <p className="text-xs text-slate-400 font-semibold max-w-[200px]">
+            <p className="text-xs text-slate-400 font-semibold max-w-50">
               No se encontraron ventas que coincidan con los filtros actuales
             </p>
           </div>
@@ -413,13 +417,29 @@ export default function SalesHistoryPage() {
                                 <span>{formattedTime}</span>
                                 <span>•</span>
                                 <span>{itemCount} {itemCount === 1 ? 'producto' : 'productos'}</span>
+                                {role !== 'EMPLOYEE' && <span> · {sale.creator_profile?.name || 'Sin asignar'}</span>}
                               </p>
                             </div>
                           </div>
                         </div>
 
+                        {role === 'SUPERADMIN' && !sale.created_by && <select
+                          aria-label="Asignar vendedor"
+                          disabled={isAssigning && assigningSaleId === sale.id}
+                          value=""
+                          onChange={(event) => {
+                            if (!event.target.value) return;
+                            assignSale({ saleId: sale.id, sellerId: event.target.value })
+                              .catch((error: Error) => alert(error.message));
+                          }}
+                          className="w-full rounded-lg border border-slate-200 bg-white p-2 text-xs text-slate-700"
+                        >
+                          <option value="">Asignar vendedor a esta venta</option>
+                          {sellersQuery.data?.filter((seller) => seller.is_active && !seller.deleted_at).map((seller) => <option key={seller.id} value={seller.id}>{seller.name}</option>)}
+                        </select>}
+
                         {/* Divisor interno */}
-                        <div className="h-[1px] bg-[#FAF8F6] w-full"></div>
+                        <div className="h-px bg-[#FAF8F6] w-full"></div>
 
                         {/* Parte inferior: Montos y botones de acción */}
                         <div className="flex items-center justify-between">
@@ -445,22 +465,22 @@ export default function SalesHistoryPage() {
                               <Eye size={14} className="stroke-[2.5]" />
                             </button>
 
-                            <button 
+                            {role !== 'EMPLOYEE' && <button
                               onClick={() => openEditModal(sale)}
                               className="p-2 bg-[#FAF5F3] text-slate-500 hover:text-[#7A2F2B] rounded-xl transition-all active:scale-90 border border-transparent hover:border-[#EADED9] cursor-pointer"
                               title="Editar Estado"
                             >
                               <Pencil size={14} className="stroke-[2.5]" />
-                            </button>
+                            </button>}
 
-                            <button
+                            {role !== 'EMPLOYEE' && <button
                               onClick={() => handleOpenDeleteModal(sale)}
                               disabled={isDeletingSale || isUpdatingSale}
                               className="p-2 bg-[#FAF5F3] text-slate-500 hover:text-red-600 rounded-xl transition-all active:scale-90 border border-transparent hover:border-red-100 cursor-pointer disabled:opacity-50"
                               title="Eliminar Venta"
                             >
                               <Trash2 size={14} className="stroke-[2.5]" />
-                            </button>
+                            </button>}
                           </div>
                         </div>
                       </div>
@@ -478,14 +498,14 @@ export default function SalesHistoryPage() {
           className="fixed bottom-20 md:bottom-8 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-white shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all duration-200"
           title="Nueva Venta"
         >
-          <Plus size={24} className="stroke-[3]" />
+          <Plus size={24} className="stroke-3" />
         </button>
 
         {/* MODAL: Detalle de Venta */}
         {viewingSale !== null && (
           <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 backdrop-blur-[2px] animate-fade-in" onClick={() => setViewingSale(null)}>
             <div 
-              className="relative w-full max-w-md bg-white rounded-t-[32px] p-6 pb-8 shadow-2xl border-t border-[#EADED9] animate-slide-up"
+              className="relative w-full max-w-md bg-white rounded-t-4xl p-6 pb-8 shadow-2xl border-t border-[#EADED9] animate-slide-up"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Barra indicadora superior */}
@@ -531,6 +551,8 @@ export default function SalesHistoryPage() {
                 </div>
               </div>
 
+              {role !== 'EMPLOYEE' && <p className="mb-3 text-xs font-semibold text-slate-600">Vendedor: {viewingSale.creator_profile?.name || 'Sin asignar'}</p>}
+
               {/* Lista de Productos Comprados */}
               <div className="border border-[#F2ECE9] p-4 rounded-2xl bg-white mb-5 space-y-3">
                 <h4 className="text-[10px] font-black uppercase tracking-wider text-[#7A2F2B]">
@@ -547,7 +569,7 @@ export default function SalesHistoryPage() {
                             {item.quantity} {item.quantity === 1 ? 'unidad' : 'unidades'} x {formatCurrencyUsd(item.unit_price)}
                           </p>
                         </div>
-                        <span className="font-black text-slate-800 flex-shrink-0">
+                        <span className="font-black text-slate-800 shrink-0">
                           {formatCurrencyUsd(item.subtotal || (item.quantity * item.unit_price))}
                         </span>
                       </div>

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import SelectInput, { SelectOption } from '@/components/ui/select-input';
 import Pagination from '@/components/ui/pagination';
+import { useAuthStore } from '@/stores/auth.store';
 
 interface Client {
   id: string;
@@ -23,6 +24,7 @@ interface Client {
 }
 
 export default function ClientsPage() {
+  const isSeller = useAuthStore((state) => state.user?.role === 'EMPLOYEE');
   const [currentPage, setCurrentPage] = useState(1);
   const [search, setSearch] = useState('');
   const limit = 10;
@@ -190,7 +192,7 @@ export default function ClientsPage() {
                     </div>
 
                     {/* Botones de Acción */}
-                    <div className="flex items-center gap-1.5">
+                    {!isSeller && <div className="flex items-center gap-1.5">
                       <button
                         onClick={() => handleOpenEditModal(client)}
                         className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:text-primary hover:bg-slate-50 transition-colors"
@@ -205,7 +207,7 @@ export default function ClientsPage() {
                       >
                         <Trash2 size={16} />
                       </button>
-                    </div>
+                    </div>}
                   </div>
 
                   {/* Nombre y Teléfono */}

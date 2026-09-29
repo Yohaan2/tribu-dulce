@@ -90,7 +90,7 @@ export async function POST(request: Request) {
 
     // Buscar el usuario por email
     const user = await profileRepo.findOne({ where: { email } });
-    if (!user) {
+    if (!user || !user.is_active || user.deleted_at) {
       incrementRateLimit(ip);
       return NextResponse.json(
         { success: false, error: 'Credenciales inválidas.' },
@@ -134,6 +134,7 @@ export async function POST(request: Request) {
       name: user.name,
       email: user.email,
       role: user.role,
+      is_active: user.is_active,
       created_at: user.created_at.toISOString(),
     };
 

@@ -10,6 +10,7 @@ interface RouteParams {
 
 export const PATCH = withAuth(async (request: AuthenticatedRequest, { params }: RouteParams) => {
   try {
+    if (request.user?.role === 'EMPLOYEE') return NextResponse.json({ success: false, error: 'Acceso denegado' }, { status: 403 });
     const { id } = await params;
     const body = await request.json();
 
@@ -46,6 +47,7 @@ export const PATCH = withAuth(async (request: AuthenticatedRequest, { params }: 
 
 export const DELETE = withAuth(async (request: AuthenticatedRequest, { params }: RouteParams) => {
   try {
+    if (request.user?.role === 'EMPLOYEE') return NextResponse.json({ success: false, error: 'Acceso denegado' }, { status: 403 });
     const { id } = await params;
     await ProductsService.delete(id);
 

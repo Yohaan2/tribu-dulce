@@ -3,7 +3,7 @@ import { AuditService } from '@/services/audit.service';
 import { withAuth, withRole, AuthenticatedRequest } from '@/lib/auth/withAuth';
 
 export const GET = withAuth(
-  withRole('SUPERADMIN')(async (request: AuthenticatedRequest) => {
+  withRole('SUPERADMIN', 'ADMIN')(async (request: AuthenticatedRequest) => {
     try {
       const { searchParams } = new URL(request.url);
       const parsedPage = parseInt(searchParams.get('page') || '1', 10);

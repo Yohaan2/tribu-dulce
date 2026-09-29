@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useAuthStore } from '@/stores/auth.store';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { Breadcrumbs } from './Breadcrumbs';
@@ -16,12 +17,20 @@ interface MainLayoutProps {
 
 export function MainLayout({ children, title }: MainLayoutProps) {
   const pathname = usePathname();
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
-
+  const router = useRouter();
+  const { user, loading } = useAuthStore();
   // Automatically close the mobile sidebar drawer when the route changes
+  const [mobileState, setMobileState] = useState({ pathname, open: false });
+  const isMobileOpen = mobileState.pathname === pathname && mobileState.open;
+  const forbidden = user?.role === 'EMPLOYEE' && ['/products', '/predictions', '/calendar', '/settings', '/audit', '/users'].some((route) => pathname === route || pathname.startsWith(`${route}/`))
+    || pathname === '/users' && user?.role !== 'SUPERADMIN';
+
   useEffect(() => {
-    setIsMobileOpen(false);
-  }, [pathname]);
+    if (!loading && !user) router.replace('/login');
+    else if (!loading && forbidden) router.replace('/dashboard');
+  }, [loading, user, forbidden, router]);
+
+  if (loading || !user || forbidden) return null;
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background-alt text-foreground font-sans">
@@ -37,7 +46,7 @@ export function MainLayout({ children, title }: MainLayoutProps) {
       >
         {/* Overlay */}
         <div
-          onClick={() => setIsMobileOpen(false)}
+          onClick={() => setMobileState({ pathname, open: false })}
           className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
         />
 
@@ -55,7 +64,7 @@ export function MainLayout({ children, title }: MainLayoutProps) {
       {/* Area de Contenido Principal */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Header superior */}
-        <Header onMenuToggle={() => setIsMobileOpen(true)} title={title} />
+        <Header onMenuToggle={() => setMobileState({ pathname, open: true })} title={title} />
 
         {/* Scrollable Main Area */}
         <main className="flex-1 overflow-y-auto px-1 pt-4 pb-20 md:py-6">
@@ -70,7 +79,7 @@ export function MainLayout({ children, title }: MainLayoutProps) {
       </div>
 
       {/* Barra de Navegación Inferior en Móvil */}
-      <BottomNavigation onMenuToggle={() => setIsMobileOpen(true)} />
+      <BottomNavigation onMenuToggle={() => setMobileState({ pathname, open: true })} />
     </div>
   );
 }

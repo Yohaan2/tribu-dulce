@@ -72,7 +72,7 @@ class PostgresAuthProvider implements AuthProvider {
       if (res.ok) {
         const { data } = await res.json();
         if (data?.user) {
-          setClientAuth(token, data.user);
+          setClientAuth(data.token || token, data.user);
           return data.user;
         }
       } else if (res.status === 401) {

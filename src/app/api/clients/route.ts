@@ -4,7 +4,7 @@ import { AuditService } from '@/services/audit.service';
 import { CreateClientSchema } from '@/schemas/client.schema';
 import { AuthenticatedRequest, withAuth } from '@/lib/auth/withAuth';
 
-export async function GET(request: Request) {
+export const GET = withAuth(async (request: AuthenticatedRequest) => {
   try {
     const { searchParams } = new URL(request.url);
     const name = searchParams.get('name');
@@ -36,7 +36,7 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-}
+});
 
 export const POST = withAuth(async (request: AuthenticatedRequest) => {
   try {

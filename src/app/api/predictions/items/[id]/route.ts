@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server';
 import { PredictionsService } from '@/services/predictions.service';
 import { AuditService } from '@/services/audit.service';
 import { UpdatePredictionItemSchema } from '@/schemas/prediction.schema';
-import { AuthenticatedRequest, withAuth } from '@/lib/auth/withAuth';
+import { AuthenticatedRequest, withAuth, withRole } from '@/lib/auth/withAuth';
 
-export const PATCH = withAuth(async (request: AuthenticatedRequest, context: any) => {
+export const PATCH = withAuth(withRole('ADMIN', 'SUPERADMIN')(async (request: AuthenticatedRequest, context: any) => {
   try {
     const params = await context.params;
     const { id } = params;
@@ -40,9 +40,9 @@ export const PATCH = withAuth(async (request: AuthenticatedRequest, context: any
       { status: 500 }
     );
   }
-});
+}));
 
-export const DELETE = withAuth(async (request: AuthenticatedRequest, context: any) => {
+export const DELETE = withAuth(withRole('ADMIN', 'SUPERADMIN')(async (request: AuthenticatedRequest, context: any) => {
   try {
     const params = await context.params;
     const { id } = params;
@@ -71,4 +71,4 @@ export const DELETE = withAuth(async (request: AuthenticatedRequest, context: an
       { status: 500 }
     );
   }
-});
+}));

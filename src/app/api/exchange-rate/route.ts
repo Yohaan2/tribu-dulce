@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { ExchangeRateService } from '@/services/exchange-rate.service';
+import { withAuth, withRole } from '@/lib/auth/withAuth';
 
-export async function GET() {
+export const GET = withAuth(async () => {
   try {
     const latestRate = await ExchangeRateService.getLatest();
     return NextResponse.json({ success: true, data: latestRate });
@@ -13,9 +14,9 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
+});
 
-export async function POST(request: Request) {
+export const POST = withAuth(withRole('ADMIN', 'SUPERADMIN')(async (request: Request) => {
   try {
     const body = await request.json();
     const { rate, source } = body;
@@ -37,4 +38,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+}));

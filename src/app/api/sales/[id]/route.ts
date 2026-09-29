@@ -7,10 +7,11 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-export async function GET(request: Request, { params }: RouteParams) {
+export const GET = withAuth(async (request: AuthenticatedRequest, { params }: RouteParams) => {
   try {
     const { id } = await params;
     const sale = await SalesService.getById(id);
+    if (request.user?.role === 'EMPLOYEE' && sale.created_by !== request.user.id) return NextResponse.json({ success: false, error: 'Acceso denegado' }, { status: 403 });
     return NextResponse.json({ success: true, data: sale });
   } catch (error: any) {
     console.error('[src/app/api/sales/[id]/route.ts] status: 404, error:', error);
@@ -20,11 +21,12 @@ export async function GET(request: Request, { params }: RouteParams) {
       { status: 404 }
     );
   }
-}
+});
 
 export const DELETE = withAuth(async (request: AuthenticatedRequest, { params }: RouteParams) => {
   try {
     const { id } = await params;
+    if (request.user?.role === 'EMPLOYEE') return NextResponse.json({ success: false, error: 'Acceso denegado' }, { status: 403 });
     await SalesService.delete(id);
 
     if (request.user) {
@@ -50,6 +52,7 @@ export const PATCH = withAuth(async (request: AuthenticatedRequest, { params }: 
   try {
     const { id } = await params;
     const body = await request.json();
+    if (request.user?.role === 'EMPLOYEE') return NextResponse.json({ success: false, error: 'Acceso denegado' }, { status: 403 });
     const { status, items } = body;
 
     if (status && !['PAID', 'PENDING', 'PARTIAL'].includes(status)) {

@@ -8,7 +8,7 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-export async function GET(request: Request, { params }: RouteParams) {
+export const GET = withAuth(async (request: AuthenticatedRequest, { params }: RouteParams) => {
   try {
     const { id } = await params;
     const client = await ClientsService.getById(id);
@@ -21,11 +21,12 @@ export async function GET(request: Request, { params }: RouteParams) {
       { status: 404 }
     );
   }
-}
+});
 
 export const PATCH = withAuth(async (request: AuthenticatedRequest, { params }: RouteParams) => {
   try {
     const { id } = await params;
+    if (request.user?.role === 'EMPLOYEE') return NextResponse.json({ success: false, error: 'Acceso denegado' }, { status: 403 });
     const body = await request.json();
 
     const validation = UpdateClientSchema.safeParse(body);
@@ -62,6 +63,7 @@ export const PATCH = withAuth(async (request: AuthenticatedRequest, { params }: 
 export const DELETE = withAuth(async (request: AuthenticatedRequest, { params }: RouteParams) => {
   try {
     const { id } = await params;
+    if (request.user?.role === 'EMPLOYEE') return NextResponse.json({ success: false, error: 'Acceso denegado' }, { status: 403 });
     await ClientsService.delete(id);
 
     if (request.user) {

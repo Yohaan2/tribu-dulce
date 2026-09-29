@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server';
 import { PredictionsService } from '@/services/predictions.service';
 import { AuditService } from '@/services/audit.service';
 import { ResetPredictionSchema } from '@/schemas/prediction.schema';
-import { AuthenticatedRequest, withAuth } from '@/lib/auth/withAuth';
+import { AuthenticatedRequest, withAuth, withRole } from '@/lib/auth/withAuth';
 
-export const POST = withAuth(async (request: AuthenticatedRequest) => {
+export const POST = withAuth(withRole('ADMIN', 'SUPERADMIN')(async (request: AuthenticatedRequest) => {
   try {
     let body = {};
     try {
@@ -36,4 +36,4 @@ export const POST = withAuth(async (request: AuthenticatedRequest) => {
       { status: 500 }
     );
   }
-});
+}));

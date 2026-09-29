@@ -3,8 +3,10 @@
 import React, { useState, useMemo } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useDebts } from '@/hooks/useDebts';
+import { useAuthStore } from '@/stores/auth.store';
 import { useExchangeRate } from '@/hooks/useExchangeRate';
 import { formatCurrencyUsd, formatCurrencyBs } from '@/lib/utils';
+import { Sale } from '@/types';
 import {
   CircleDollarSign,
   CreditCard,
@@ -19,6 +21,7 @@ import {
 } from 'lucide-react';
 
 export default function DebtsPage() {
+  const isSeller = useAuthStore((state) => state.user?.role === 'EMPLOYEE');
   const { debts, isLoading, payDebt, isPaying } = useDebts();
   const { exchangeRate } = useExchangeRate();
 
@@ -336,7 +339,7 @@ export default function DebtsPage() {
           <div className="flex h-60 flex-col items-center justify-center text-slate-400 text-center rounded-3xl border border-slate-100 bg-white p-6">
             <CircleDollarSign size={44} className="mb-2 text-slate-300 stroke-[1.2]" />
             <p className="text-sm font-bold text-slate-700">¡Todo al día!</p>
-            <p className="text-xs text-slate-400 mt-1 max-w-[250px]">
+            <p className="text-xs text-slate-400 mt-1 max-w-62.5">
               {searchQuery ? 'No se encontraron clientes con deudas para esta búsqueda.' : 'No hay cuentas por cobrar pendientes.'}
             </p>
           </div>
@@ -362,6 +365,7 @@ export default function DebtsPage() {
                         <h4 className="text-base font-extrabold text-slate-800 leading-snug truncate">
                           {clientDebt.client?.name || 'Cliente desconocido'}
                         </h4>
+                        {!isSeller && <p className="text-xs text-slate-500">{Array.from(new Set(clientDebt.sales.map((sale: Sale) => sale.creator_profile?.name || 'Sin asignar'))).join(', ')}</p>}
                         <p className="text-xs text-slate-400 truncate">
                           {formatDateCard(clientDebt.created_at)} • {productCount} {productCount === 1 ? 'producto' : 'productos'}
                         </p>
@@ -411,7 +415,7 @@ export default function DebtsPage() {
                     >
                       Ver detalle
                     </button>
-                    <button
+                    {!isSeller && <button
                       onClick={() => {
                         setSelectedSale(clientDebt);
                         setAmountUsd(outstandingUsd.toFixed(2));
@@ -420,7 +424,7 @@ export default function DebtsPage() {
                       className="w-full rounded-2xl bg-[#5C2320] hover:bg-[#7A2F2B] active:scale-[0.98] py-3 text-sm font-bold text-white shadow-md shadow-[#5C2320]/15 transition-all cursor-pointer text-center"
                     >
                       Marcar pagado
-                    </button>
+                    </button>}
                   </div>
                 </div>
               );
@@ -452,6 +456,7 @@ export default function DebtsPage() {
                     <p className="text-sm font-bold text-slate-800 truncate ml-1">
                       {clientDebt.client?.name || 'Cliente desconocido'}
                     </p>
+                    {!isSeller && <p className="ml-1 text-xs text-slate-500">{Array.from(new Set(clientDebt.sales.map((sale: Sale) => sale.creator_profile?.name || 'Sin asignar'))).join(', ')}</p>}
                     <span
                       className={`inline-block mt-0.5 rounded-full px-1 py-0.5 text-[10px] font-extrabold uppercase tracking-wide ${isOverdue
                           ? 'bg-rose-100 text-rose-600'
@@ -484,7 +489,7 @@ export default function DebtsPage() {
         {selectedDetailSale && (
           <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 backdrop-blur-[2px] animate-fade-in" onClick={() => setSelectedDetailSale(null)}>
             <div
-              className="relative w-full max-w-md bg-white rounded-t-[32px] p-6 pb-8 shadow-2xl border-t border-[#EADED9] animate-slide-up"
+              className="relative flex max-h-[90dvh] w-full max-w-md flex-col overflow-hidden rounded-t-4xl border-t border-[#EADED9] bg-white p-5 pr-2 pb-4 shadow-2xl animate-slide-up"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Barra indicadora superior */}
@@ -498,8 +503,9 @@ export default function DebtsPage() {
                 <X size={16} className="stroke-[2.5]" />
               </button>
 
-              {/* Título */}
-              <div className="mb-5">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-3">
+                {/* Título */}
+                <div className="mb-5">
                 <h3 className="text-xl font-black text-[#5C2320] tracking-tight">
                   Detalle de Transacciones
                 </h3>
@@ -526,10 +532,15 @@ export default function DebtsPage() {
               </div>
 
 
+              {!isSeller && <div className="mb-4 rounded-xl border border-slate-100 p-3 text-xs text-slate-600">
+                <p className="font-bold text-slate-700">Vendedor(es)</p>
+                <p>{Array.from(new Set(selectedDetailSale.sales.map((sale: Sale) => sale.creator_profile?.name || 'Sin asignar'))).join(', ')}</p>
+              </div>}
+
               {/* Lista de Productos */}
               <div className="mb-4">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Productos por fecha</h4>
-                <div className="max-h-[160px] overflow-y-auto pr-1 space-y-3">
+                <div className="max-h-40 overflow-y-auto pr-1 space-y-3">
                   {getGroupedItemsByDay(selectedDetailSale.sales).map((group) => (
                     <div key={group.dateStr} className="space-y-1">
                       <span className="text-[10px] font-extrabold uppercase tracking-wide text-slate-400 block px-1">
@@ -567,7 +578,7 @@ export default function DebtsPage() {
                   return allPayments.length === 0 ? (
                     <p className="text-xs text-slate-400 italic bg-[#FAF8F6] p-3 rounded-xl border border-[#F2ECE9] text-center">No se han registrado abonos previos.</p>
                   ) : (
-                    <div className="max-h-[100px] overflow-y-auto border border-[#F2ECE9] rounded-2xl divide-y divide-[#F2ECE9]">
+                    <div className="max-h-25 overflow-y-auto border border-[#F2ECE9] rounded-2xl divide-y divide-[#F2ECE9]">
                       {allPayments.map((pay: any, idx: number) => (
                         <div key={pay.id} className="flex justify-between items-center p-3 text-xs">
                           <div>
@@ -710,10 +721,11 @@ export default function DebtsPage() {
                   </div>
                 );
               })()}
+              </div>
 
               <button
                 onClick={() => setSelectedDetailSale(null)}
-                className="w-full rounded-2xl bg-[#5C2320] hover:bg-[#7A2F2B] py-3 text-sm font-bold text-white shadow-md transition-all mt-4 cursor-pointer text-center"
+                className="mt-4 w-full shrink-0 rounded-2xl bg-[#5C2320] py-3 text-sm font-bold text-white shadow-md transition-all hover:bg-[#7A2F2B] cursor-pointer text-center"
               >
                 Cerrar Detalles
               </button>

@@ -10,6 +10,7 @@ import {
   MoreHorizontal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuthStore } from '@/stores/auth.store';
 
 interface BottomNavigationProps {
   onMenuToggle: () => void;
@@ -18,11 +19,12 @@ interface BottomNavigationProps {
 
 export function BottomNavigation({ onMenuToggle, className }: BottomNavigationProps) {
   const pathname = usePathname();
+  const role = useAuthStore((state) => state.user?.role);
 
   const navigationItems = [
     { name: 'Ventas', href: '/sales', icon: ShoppingCart },
     { name: 'Deudas', href: '/debts', icon: CreditCard },
-    { name: 'Inventario', href: '/products', icon: Package },
+    ...(role === 'EMPLOYEE' ? [{ name: 'Historial', href: '/sales-history', icon: ShoppingCart }] : [{ name: 'Inventario', href: '/products', icon: Package }]),
     { name: 'Clientes', href: '/clients', icon: Users },
   ];
 

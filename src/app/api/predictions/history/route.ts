@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { PredictionsService } from '@/services/predictions.service';
+import { withAuth, withRole } from '@/lib/auth/withAuth';
 
-export async function GET() {
+export const GET = withAuth(withRole('ADMIN', 'SUPERADMIN')(async () => {
   try {
     const history = await PredictionsService.getHistory();
     return NextResponse.json({ success: true, data: history });
@@ -12,4 +13,4 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
+}));

@@ -2,7 +2,7 @@ import { db } from '@/lib/db';
 import { DashboardStats } from '@/types';
 
 export class DashboardService {
-  static async getStats(): Promise<DashboardStats> {
+  static async getStats(sellerId?: string): Promise<DashboardStats> {
     // Obtener fechas clave en formato ISO
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
@@ -16,6 +16,6 @@ export class DashboardService {
     thirtyDaysAgo.setDate(now.getDate() - 30);
     const monthStart = thirtyDaysAgo.toISOString();
 
-    return await db.getDashboardStats(todayStart, weekStart, monthStart);
+    return await db.getDashboardStats(todayStart, weekStart, monthStart, sellerId);
   }
 }

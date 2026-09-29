@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server';
 import { PredictionsService } from '@/services/predictions.service';
 import { AuditService } from '@/services/audit.service';
 import { CreatePredictionItemSchema } from '@/schemas/prediction.schema';
-import { AuthenticatedRequest, withAuth } from '@/lib/auth/withAuth';
+import { AuthenticatedRequest, withAuth, withRole } from '@/lib/auth/withAuth';
 
-export async function GET() {
+export const GET = withAuth(withRole('ADMIN', 'SUPERADMIN')(async () => {
   try {
     const activeSummary = await PredictionsService.getActiveSummary();
     return NextResponse.json({ success: true, data: activeSummary });
@@ -15,9 +15,9 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
+}));
 
-export const POST = withAuth(async (request: AuthenticatedRequest) => {
+export const POST = withAuth(withRole('ADMIN', 'SUPERADMIN')(async (request: AuthenticatedRequest) => {
   try {
     const body = await request.json();
 
@@ -55,4 +55,4 @@ export const POST = withAuth(async (request: AuthenticatedRequest) => {
       { status: 500 }
     );
   }
-});
+}));

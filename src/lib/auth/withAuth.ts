@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { verifyToken, TokenPayload } from './jwt';
+import { getDataSource, ProfileEntity } from '@/lib/db/postgres';
+import { UserRole } from '@/types';
 
 export interface AuthenticatedRequest extends Request {
   user?: TokenPayload;
@@ -32,16 +34,24 @@ export function withAuth(handler: AuthenticatedHandler) {
       );
     }
 
+    const ds = await getDataSource();
+    const profile = await ds.getRepository(ProfileEntity).findOne({ where: { id: payload.id } });
+    if (!profile || !profile.is_active || profile.deleted_at) {
+      const response = NextResponse.json({ success: false, error: 'Cuenta inactiva o no disponible' }, { status: 401 });
+      response.cookies.set('auth_token', '', { path: '/', maxAge: 0 });
+      return response;
+    }
+
     // 4. Adjuntar user al request
     const authReq = req as AuthenticatedRequest;
-    authReq.user = payload;
+    authReq.user = { id: profile.id, email: profile.email, name: profile.name, role: profile.role };
 
     // 5. Llamar handler(req, res)
     return handler(authReq, context);
   };
 }
 
-export function withRole(role: 'ADMIN' | 'EMPLOYEE' | 'SUPERADMIN') {
+export function withRole(...roles: UserRole[]) {
   return (handler: AuthenticatedHandler): AuthenticatedHandler => {
     return async (req: AuthenticatedRequest, context?: any) => {
       if (!req.user) {
@@ -51,8 +61,7 @@ export function withRole(role: 'ADMIN' | 'EMPLOYEE' | 'SUPERADMIN') {
         );
       }
 
-      // Si el rol es ADMIN, tiene acceso a todo. De lo contrario, debe coincidir exactamente.
-      if (req.user.role !== role && req.user.role !== 'ADMIN') {
+      if (!roles.includes(req.user.role)) {
         return NextResponse.json(
           { success: false, error: 'Forbidden: Insufficient permissions' },
           { status: 403 }

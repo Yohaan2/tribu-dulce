@@ -4,9 +4,9 @@ import { AuditService } from '@/services/audit.service';
 import { CreateSaleSchema } from '@/schemas/sale.schema';
 import { AuthenticatedRequest, withAuth } from '@/lib/auth/withAuth';
 
-export async function GET() {
+export const GET = withAuth(async (request: AuthenticatedRequest) => {
   try {
-    const sales = await SalesService.getAll();
+    const sales = await SalesService.getAll(request.user?.role === 'EMPLOYEE' ? request.user.id : undefined);
     return NextResponse.json({ success: true, data: sales });
   } catch (error: any) {
     console.error('[src/app/api/sales/route.ts] status: 500, error:', error);
@@ -16,7 +16,7 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
+});
 
 export const POST = withAuth(async (request: AuthenticatedRequest) => {
   try {
@@ -30,7 +30,7 @@ export const POST = withAuth(async (request: AuthenticatedRequest) => {
       );
     }
 
-    const newSale = await SalesService.create(validation.data);
+    const newSale = await SalesService.create({ ...validation.data, created_by: request.user!.id });
 
     if (request.user) {
       await AuditService.record({
